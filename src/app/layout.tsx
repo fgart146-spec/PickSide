@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { NavBar } from "@/components/nav-bar";
 import { Toaster } from "@/components/ui/sonner";
@@ -35,6 +36,12 @@ export default function RootLayout({
         <NavBar />
         {children}
         <Toaster />
+        <Script
+          id="google-adsense"
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4960740109673485"
+          strategy="beforeInteractive"
+          crossOrigin="anonymous"
+        />
       </body>
     </html>
   );
