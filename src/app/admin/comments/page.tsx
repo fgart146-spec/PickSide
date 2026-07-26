@@ -1,0 +1,82 @@
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { deleteComment } from "@/app/comments/actions";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+export default async function AdminCommentsPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.is_admin) {
+    redirect("/");
+  }
+
+  const { data: comments } = await supabase
+    .from("comments")
+    .select("id, body, created_at, poll_id, profiles(username), polls(question)")
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  return (
+    <div className="flex flex-1 justify-center px-4 py-12">
+      <div className="flex w-full max-w-lg flex-col gap-6">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">전체 투표 댓글</h1>
+          <p className="text-sm text-muted-foreground">
+            최근 200개의 댓글을 표시합니다. 삭제하면 휴지통으로 이동합니다.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          {comments?.map((comment) => {
+            const author =
+              (comment as unknown as { profiles: { username: string } | null }).profiles
+                ?.username ?? "알 수 없음";
+            const pollQuestion =
+              (comment as unknown as { polls: { question: string } | null }).polls
+                ?.question ?? "삭제된 투표";
+            return (
+              <Card key={comment.id}>
+                <CardHeader>
+                  <CardTitle className="text-sm">
+                    <Link href={`/polls/${comment.poll_id}`} className="underline underline-offset-4">
+                      {pollQuestion}
+                    </Link>
+                  </CardTitle>
+                  <CardDescription>
+                    {author} · {comment.body}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form action={deleteComment.bind(null, comment.poll_id, comment.id)}>
+                    <Button type="submit" size="sm" variant="outline">
+                      삭제
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            );
+          })}
+          {(!comments || comments.length === 0) && (
+            <p className="text-sm text-muted-foreground">댓글이 없습니다.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
