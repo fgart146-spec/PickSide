@@ -3,8 +3,14 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { POLL_CATEGORIES, isPollCategory, type PollCategory } from "@/lib/categories";
 import { COMMUNITY_BOARDS, BOARD_LABEL } from "@/lib/community-boards";
-import { isHomeSectionKey, type HomeSectionKey } from "@/lib/home-sections";
-import { SITE_CONTENT_BUCKET } from "@/lib/supabase/service";
+import { type HomeSectionKey } from "@/lib/home-sections";
+import {
+  getHomePortalData,
+  getPublishedPollPage,
+  POLL_PAGE_SIZE,
+  type PollListItem,
+  type PollSort,
+} from "@/lib/home-data";
 import {
   Card,
   CardDescription,
@@ -16,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AdSlot } from "@/components/ad-slot";
 import { NoticeBanner } from "@/components/notice-banner";
-import { HomePopup, type PopupItem } from "@/components/home-popup";
+import { HomePopup } from "@/components/home-popup";
 
 // Escape ILIKE wildcards so a literal "%" or "_" in the search box is
 // matched as text, not treated as a pattern wildcard.
@@ -25,73 +31,51 @@ function escapeLike(value: string) {
 }
 
 const SORT_OPTIONS = ["latest", "popular", "comments"] as const;
-type SortOption = (typeof SORT_OPTIONS)[number];
+type SortOption = PollSort;
 const SORT_LABEL: Record<SortOption, string> = {
   latest: "최신순",
   popular: "인기순",
   comments: "댓글순",
 };
 
-type PollListItem = {
-  id: string;
-  question: string;
-  created_at: string;
-  category: PollCategory;
-  view_count: number;
-  is_pinned: boolean;
-  is_featured: boolean;
-  votes: { count: number }[];
-  comments: { count: number }[];
-};
-
-function countOf(rows: { count: number }[] | null | undefined) {
-  return rows?.[0]?.count ?? 0;
-}
-
-// Prefer an admin-curated "추천" poll; if none is marked, fall back to a
-// date-seeded pick so the section still rotates daily on its own.
-function pickDailyFeatured<T extends { is_featured?: boolean }>(items: T[]): T | null {
-  const featured = items.filter((item) => item.is_featured);
-  const pool = featured.length > 0 ? featured : items;
-  if (pool.length === 0) return null;
-  const today = new Date().toISOString().slice(0, 10);
-  let hash = 0;
-  for (let i = 0; i < today.length; i++) {
-    hash = (hash * 31 + today.charCodeAt(i)) >>> 0;
-  }
-  return pool[hash % pool.length];
-}
+// Reads the denormalized vote_count/comment_count columns instead of
+// aggregating votes(count)/comments(count) per row.
+const baseSelect =
+  "id, question, created_at, category, view_count, is_pinned, is_featured, vote_count, comment_count";
 
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string; sort?: string }>;
+  searchParams: Promise<{ q?: string; category?: string; sort?: string; page?: string }>;
 }) {
-  const { q, category: categoryParam, sort: sortParam } = await searchParams;
+  const { q, category: categoryParam, sort: sortParam, page: pageParam } = await searchParams;
   const query = q?.trim() ?? "";
   const category = categoryParam && isPollCategory(categoryParam) ? categoryParam : null;
   const sort: SortOption = (SORT_OPTIONS as readonly string[]).includes(sortParam ?? "")
     ? (sortParam as SortOption)
     : "latest";
+  const parsedPage = Number(pageParam);
+  const page = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
 
-  const supabase = await createClient();
+  // Portal widgets (cached, cookie-independent) are fetched in parallel with
+  // the main poll list so the two round-trips overlap instead of stacking.
+  const portalPromise = getHomePortalData();
 
-  const baseSelect =
-    "id, question, created_at, category, view_count, is_pinned, is_featured, votes(count), comments(count)";
-  let polls: PollListItem[] | null;
-  let error: { message: string } | null;
+  let polls: PollListItem[] = [];
+  let hasNext = false;
+  let error: { message: string } | null = null;
 
   if (!query) {
-    let res = supabase
-      .from("polls")
-      .select(baseSelect)
-      .eq("status", "published")
-      .is("deleted_at", null);
-    if (category) res = res.eq("category", category);
-    const final = await res.limit(200);
-    polls = final.data;
-    error = final.error;
+    // Default browse: one cached, database-paginated page of 10 rows.
+    try {
+      const res = await getPublishedPollPage(category, sort, page);
+      polls = res.polls;
+      hasNext = res.hasNext;
+    } catch (e) {
+      error = { message: e instanceof Error ? e.message : String(e) };
+    }
   } else {
+    const supabase = await createClient();
     const pattern = `%${escapeLike(query)}%`;
 
     // Two parameterized queries merged in app code, instead of building a
@@ -134,104 +118,41 @@ export default async function Home({
     for (const poll of [...(byQuestion.data ?? []), ...byOption]) {
       merged.set(poll.id, poll);
     }
-    polls = [...merged.values()];
+
+    const sorted = [...merged.values()].sort((a, b) => {
+      if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
+      if (sort === "popular") return b.vote_count - a.vote_count;
+      if (sort === "comments") return b.comment_count - a.comment_count;
+      return a.created_at < b.created_at ? 1 : -1;
+    });
+
+    const start = (page - 1) * POLL_PAGE_SIZE;
+    polls = sorted.slice(start, start + POLL_PAGE_SIZE);
+    hasNext = sorted.length > start + POLL_PAGE_SIZE;
   }
 
-  polls = polls
-    ?.slice()
-    .sort((a, b) => {
-      if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
-      if (sort === "popular") return countOf(b.votes) - countOf(a.votes);
-      if (sort === "comments") return countOf(b.comments) - countOf(a.comments);
-      return a.created_at < b.created_at ? 1 : -1;
-    })
-    .slice(0, 50) ?? null;
+  const {
+    stats,
+    visibleSectionKeys,
+    featuredPoll,
+    popularPolls,
+    latestPolls,
+    banners: homeBanners,
+    popups: popupItems,
+  } = await portalPromise;
 
-  // Portal-style homepage widgets — always drawn from the full published
-  // pool, independent of whatever search/category the visitor has active
-  // in the browsable list below.
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
-
-  const nowIso = new Date().toISOString();
-
-  const [
-    { data: allPublished },
-    { count: totalPollCount },
-    { count: todayVoteCount },
-    { data: homeSections },
-    { data: homeBanners },
-    { data: popups },
-  ] = await Promise.all([
-    supabase
-      .from("polls")
-      .select(baseSelect)
-      .eq("status", "published")
-      .is("deleted_at", null)
-      .order("id")
-      .limit(200),
-    supabase
-      .from("polls")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "published")
-      .is("deleted_at", null),
-    supabase
-      .from("votes")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", todayStart.toISOString()),
-    supabase
-      .from("home_sections")
-      .select("key, is_visible, sort_order")
-      .order("sort_order", { ascending: true }),
-    supabase
-      .from("banners")
-      .select("id, title, image_path, link_url")
-      .eq("kind", "home")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true })
-      .limit(5),
-    supabase
-      .from("popups")
-      .select("id, title, body, image_path, link_url")
-      .eq("is_active", true)
-      .or(`starts_at.is.null,starts_at.lte.${nowIso}`)
-      .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
-      .order("created_at", { ascending: false })
-      .limit(5),
-  ]);
-
-  const popupItems: PopupItem[] = (popups ?? []).map((p) => ({
-    id: p.id,
-    title: p.title,
-    body: p.body,
-    imageUrl: p.image_path
-      ? supabase.storage.from(SITE_CONTENT_BUCKET).getPublicUrl(p.image_path).data.publicUrl
-      : null,
-    linkUrl: p.link_url,
-  }));
-
-  const visibleSectionKeys = (homeSections ?? [])
-    .filter((s) => s.is_visible)
-    .map((s) => s.key)
-    .filter(isHomeSectionKey);
-
-  const featuredPoll = pickDailyFeatured(allPublished ?? []);
-  const popularPolls = (allPublished ?? [])
-    .slice()
-    .sort((a, b) => countOf(b.votes) - countOf(a.votes))
-    .slice(0, 5);
-  const latestPolls = (allPublished ?? [])
-    .slice()
-    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
-    .slice(0, 5);
-
-  const buildHref = (overrides: { category?: PollCategory | null; sort?: SortOption }) => {
+  const buildHref = (overrides: {
+    category?: PollCategory | null;
+    sort?: SortOption;
+    page?: number;
+  }) => {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
     const nextCategory = "category" in overrides ? overrides.category : category;
     const nextSort = overrides.sort ?? sort;
     if (nextCategory) params.set("category", nextCategory);
     if (nextSort !== "latest") params.set("sort", nextSort);
+    if (overrides.page && overrides.page > 1) params.set("page", String(overrides.page));
     const qs = params.toString();
     return qs ? `/?${qs}` : "/";
   };
@@ -300,10 +221,10 @@ export default async function Home({
     stats: (
       <div className="flex flex-wrap items-center gap-4 rounded-lg border bg-muted/30 px-4 py-3 text-sm">
         <span>
-          오늘 참여자 <strong>{todayVoteCount ?? 0}</strong>명
+          오늘 참여자 <strong>{stats.todayVoteCount}</strong>명
         </span>
         <span>
-          전체 투표 <strong>{totalPollCount ?? 0}</strong>개
+          전체 투표 <strong>{stats.totalPollCount}</strong>개
         </span>
       </div>
     ),
@@ -333,7 +254,7 @@ export default async function Home({
             </div>
             <CardTitle className="text-lg">{featuredPoll.question}</CardTitle>
             <CardDescription>
-              {countOf(featuredPoll.votes)}표 참여 · 댓글 {countOf(featuredPoll.comments)}개
+              {featuredPoll.vote_count}표 참여 · 댓글 {featuredPoll.comment_count}개
             </CardDescription>
           </CardHeader>
         </Card>
@@ -355,7 +276,7 @@ export default async function Home({
                 <span className="text-muted-foreground">{i + 1}</span>
                 <span className="flex-1 truncate">{poll.question}</span>
                 <span className="shrink-0 text-xs text-muted-foreground">
-                  {countOf(poll.votes)}표
+                  {poll.vote_count}표
                 </span>
               </Link>
             </li>
@@ -399,22 +320,17 @@ export default async function Home({
       {homeBanners && homeBanners.length > 0 && (
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pt-6">
           {homeBanners.map((banner) => {
-            const imageUrl = banner.image_path
-              ? supabase.storage.from(SITE_CONTENT_BUCKET).getPublicUrl(banner.image_path).data
-                  .publicUrl
-              : null;
-            if (!imageUrl) return null;
             const image = (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={imageUrl}
+                src={banner.imageUrl}
                 alt={banner.title}
                 className="aspect-[3/1] w-full rounded-lg object-cover"
               />
             );
             return (
               <div key={banner.id}>
-                {banner.link_url ? <Link href={banner.link_url}>{image}</Link> : image}
+                {banner.linkUrl ? <Link href={banner.linkUrl}>{image}</Link> : image}
               </div>
             );
           })}
@@ -499,7 +415,7 @@ export default async function Home({
             </Card>
           )}
 
-          {!error && (query || category) && polls?.length === 0 && (
+          {!error && (query || category) && polls.length === 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">검색 결과가 없어요</CardTitle>
@@ -512,7 +428,7 @@ export default async function Home({
             </Card>
           )}
 
-          {!error && !query && !category && polls?.length === 0 && (
+          {!error && !query && !category && page === 1 && polls.length === 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">아직 투표가 없어요</CardTitle>
@@ -524,11 +440,9 @@ export default async function Home({
           )}
 
           <div className="flex flex-col gap-3">
-            {polls?.map((poll, index) => {
-              const voteCount = countOf(poll.votes);
-              const commentCount = countOf(poll.comments);
+            {polls.map((poll, index) => {
               const showInFeedAd =
-                (index + 1) % 4 === 0 && index !== (polls?.length ?? 0) - 1;
+                (index + 1) % 4 === 0 && index !== polls.length - 1;
               return (
                 <Fragment key={poll.id}>
                   <Link href={`/polls/${poll.id}`}>
@@ -541,7 +455,7 @@ export default async function Home({
                         </div>
                         <CardTitle className="text-base">{poll.question}</CardTitle>
                         <CardDescription>
-                          {voteCount}표 참여 · 댓글 {commentCount}개 · 조회수{" "}
+                          {poll.vote_count}표 참여 · 댓글 {poll.comment_count}개 · 조회수{" "}
                           {poll.view_count}
                         </CardDescription>
                       </CardHeader>
@@ -552,6 +466,37 @@ export default async function Home({
               );
             })}
           </div>
+
+          {/* Pagination — only when there is more than one page */}
+          {(page > 1 || hasNext) && (
+            <div className="flex items-center justify-center gap-3 pt-2">
+              {page > 1 ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  nativeButton={false}
+                  render={<Link href={buildHref({ page: page - 1 })}>← 이전</Link>}
+                />
+              ) : (
+                <Button size="sm" variant="outline" disabled>
+                  ← 이전
+                </Button>
+              )}
+              <span className="text-sm text-muted-foreground">{page} 페이지</span>
+              {hasNext ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  nativeButton={false}
+                  render={<Link href={buildHref({ page: page + 1 })}>다음 →</Link>}
+                />
+              ) : (
+                <Button size="sm" variant="outline" disabled>
+                  다음 →
+                </Button>
+              )}
+            </div>
+          )}
         </main>
 
         {/* Right sidebar: ad slots (desktop only) */}

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "@/app/admin/actions";
 import { SITE_CONTENT_BUCKET } from "@/lib/supabase/service";
 import { logAdminAction } from "@/lib/audit";
@@ -87,6 +87,7 @@ export async function createPopup(
 
   revalidatePath("/admin/popups");
   revalidatePath("/");
+  revalidateTag("home-portal", { expire: 0 });
   return { error: null };
 }
 
@@ -107,6 +108,7 @@ export async function togglePopupActive(id: string, isActive: boolean) {
 
   revalidatePath("/admin/popups");
   revalidatePath("/");
+  revalidateTag("home-portal", { expire: 0 });
 }
 
 export async function deletePopup(id: string) {
@@ -126,4 +128,5 @@ export async function deletePopup(id: string) {
 
   revalidatePath("/admin/popups");
   revalidatePath("/");
+  revalidateTag("home-portal", { expire: 0 });
 }

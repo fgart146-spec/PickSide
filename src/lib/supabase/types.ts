@@ -53,6 +53,8 @@ export interface Database {
           status: "pending" | "published" | "rejected" | "hidden";
           category: "일상" | "음식" | "연애" | "게임" | "밸런스" | "기타";
           view_count: number;
+          vote_count: number;
+          comment_count: number;
           is_pinned: boolean;
           is_featured: boolean;
           deleted_at: string | null;
@@ -65,6 +67,8 @@ export interface Database {
           status?: "pending" | "published" | "rejected" | "hidden";
           category?: "일상" | "음식" | "연애" | "게임" | "밸런스" | "기타";
           view_count?: number;
+          vote_count?: number;
+          comment_count?: number;
           is_pinned?: boolean;
           is_featured?: boolean;
           deleted_at?: string | null;
@@ -77,6 +81,8 @@ export interface Database {
           status?: "pending" | "published" | "rejected" | "hidden";
           category?: "일상" | "음식" | "연애" | "게임" | "밸런스" | "기타";
           view_count?: number;
+          vote_count?: number;
+          comment_count?: number;
           is_pinned?: boolean;
           is_featured?: boolean;
           deleted_at?: string | null;

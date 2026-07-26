@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
   createServiceClient,
@@ -90,6 +90,7 @@ export async function approvePoll(pollId: string) {
   revalidatePath("/admin/office/drafts");
   revalidatePath("/");
   revalidatePath(`/polls/${pollId}`);
+  revalidateTag("home-portal", { expire: 0 });
 }
 
 export async function rejectPoll(pollId: string) {
@@ -114,6 +115,7 @@ export async function rejectPoll(pollId: string) {
   revalidatePath("/admin/polls");
   revalidatePath("/");
   revalidatePath(`/polls/${pollId}`);
+  revalidateTag("home-portal", { expire: 0 });
 }
 
 export async function adminDeletePoll(pollId: string) {
@@ -138,6 +140,7 @@ export async function adminDeletePoll(pollId: string) {
   revalidatePath("/admin/polls");
   revalidatePath("/admin/trash");
   revalidatePath("/");
+  revalidateTag("home-portal", { expire: 0 });
 }
 
 async function setReportStatus(

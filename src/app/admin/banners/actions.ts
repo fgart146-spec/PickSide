@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "@/app/admin/actions";
 import { SITE_CONTENT_BUCKET } from "@/lib/supabase/service";
 import { logAdminAction } from "@/lib/audit";
@@ -87,6 +87,7 @@ export async function createBanner(
 
   revalidatePath("/admin/banners");
   revalidatePath("/");
+  revalidateTag("home-portal", { expire: 0 });
   return { error: null };
 }
 
@@ -107,6 +108,7 @@ export async function toggleBannerActive(id: string, isActive: boolean) {
 
   revalidatePath("/admin/banners");
   revalidatePath("/");
+  revalidateTag("home-portal", { expire: 0 });
 }
 
 export async function deleteBanner(id: string) {
@@ -126,4 +128,5 @@ export async function deleteBanner(id: string) {
 
   revalidatePath("/admin/banners");
   revalidatePath("/");
+  revalidateTag("home-portal", { expire: 0 });
 }

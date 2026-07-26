@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "@/app/admin/actions";
 import { logAdminAction } from "@/lib/audit";
 
@@ -25,6 +25,7 @@ export async function toggleSectionVisibility(key: string, isVisible: boolean) {
 
   revalidatePath("/admin/home-sections");
   revalidatePath("/");
+  revalidateTag("home-portal", { expire: 0 });
 }
 
 export async function moveSection(key: string, direction: "up" | "down") {
@@ -67,4 +68,5 @@ export async function moveSection(key: string, direction: "up" | "down") {
 
   revalidatePath("/admin/home-sections");
   revalidatePath("/");
+  revalidateTag("home-portal", { expire: 0 });
 }
