@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { ShieldIcon, PencilIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { OfficeNav } from "@/components/office-nav";
@@ -74,10 +75,10 @@ export default async function AiDashboardPage() {
   const lastError = (recentJobs.data ?? []).find((j) => j.status === "failed");
 
   const stats = [
-    { label: "🛡️ 신고 검토 대기", value: reviewsPending.count ?? 0, href: "/admin/office/reports" },
-    { label: "🛡️ 신고 검토 완료", value: reviewsResolved.count ?? 0, href: "/admin/office/reports" },
-    { label: "✍️ 초안 검토 대기", value: draftsPending.count ?? 0, href: "/admin/office/drafts" },
-    { label: "✍️ 오늘 생성 초안", value: draftsToday.count ?? 0, href: "/admin/office/drafts" },
+    { label: "신고 검토 대기", icon: ShieldIcon, value: reviewsPending.count ?? 0, href: "/admin/office/reports" },
+    { label: "신고 검토 완료", icon: ShieldIcon, value: reviewsResolved.count ?? 0, href: "/admin/office/reports" },
+    { label: "초안 검토 대기", icon: PencilIcon, value: draftsPending.count ?? 0, href: "/admin/office/drafts" },
+    { label: "오늘 생성 초안", icon: PencilIcon, value: draftsToday.count ?? 0, href: "/admin/office/drafts" },
   ];
 
   return (
@@ -95,28 +96,36 @@ export default async function AiDashboardPage() {
 
         {/* 핵심 카운트 */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {stats.map((s) => (
-            <Link key={s.label} href={s.href}>
-              <Card className="transition-colors hover:bg-accent/40">
-                <CardHeader className="p-4">
-                  <CardDescription className="text-xs">{s.label}</CardDescription>
-                  <CardTitle className="text-2xl">{s.value}</CardTitle>
-                </CardHeader>
-              </Card>
-            </Link>
-          ))}
+          {stats.map((s) => {
+            const Icon = s.icon;
+            return (
+              <Link key={s.label} href={s.href}>
+                <Card className="transition-colors hover:bg-accent/40">
+                  <CardHeader className="p-4">
+                    <CardDescription className="flex items-center gap-1.5 text-xs">
+                      <Icon className="size-3.5" />
+                      {s.label}
+                    </CardDescription>
+                    <CardTitle className="text-2xl">{s.value}</CardTitle>
+                  </CardHeader>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
 
         {/* 직원 소개 */}
         <div className="grid gap-3 sm:grid-cols-3">
           {(Object.keys(AI_WORKER_META) as AiWorker[]).map((w) => {
             const meta = AI_WORKER_META[w];
+            const WorkerIcon = meta.icon;
             return (
               <Link key={w} href={meta.href}>
                 <Card className="h-full transition-colors hover:bg-accent/40">
                   <CardHeader className="p-4">
-                    <CardTitle className="text-base">
-                      {meta.emoji} {meta.name}
+                    <CardTitle className="flex items-center gap-1.5 text-base">
+                      <WorkerIcon className="size-4 text-primary" />
+                      {meta.name}
                     </CardTitle>
                     <CardDescription className="text-xs">{meta.job}</CardDescription>
                   </CardHeader>
@@ -170,8 +179,12 @@ export default async function AiDashboardPage() {
               className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
             >
               <div className="flex flex-col">
-                <span>
-                  {AI_WORKER_META[job.worker as AiWorker]?.emoji} {job.kind}
+                <span className="flex items-center gap-1.5">
+                  {(() => {
+                    const JobIcon = AI_WORKER_META[job.worker as AiWorker]?.icon;
+                    return JobIcon ? <JobIcon className="size-3.5 text-muted-foreground" /> : null;
+                  })()}
+                  {job.kind}
                 </span>
                 <span className="text-xs text-muted-foreground">{fmt(job.created_at)}</span>
               </div>

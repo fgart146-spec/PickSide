@@ -1,26 +1,28 @@
 // Shared, framework-agnostic constants for the AI office. Safe to import from
 // both server and client components (no "server-only" here).
 
+import { ShieldIcon, PencilIcon, BarChart3Icon, type LucideIcon } from "lucide-react";
+
 export type AiWorker = "report_review" | "content_plan" | "analytics";
 
 export const AI_WORKER_META: Record<
   AiWorker,
-  { emoji: string; name: string; job: string; href: string }
+  { icon: LucideIcon; name: string; job: string; href: string }
 > = {
   report_review: {
-    emoji: "🛡️",
+    icon: ShieldIcon,
     name: "신고 검토관",
     job: "신고와 신고 대상 콘텐츠를 분석해 처리 방향을 추천합니다. (직접 처리는 하지 않음)",
     href: "/admin/office/reports",
   },
   content_plan: {
-    emoji: "✍️",
+    icon: PencilIcon,
     name: "콘텐츠 기획자",
     job: "양자택일 투표 초안을 만들어 pending 상태로 저장합니다.",
     href: "/admin/office/drafts",
   },
   analytics: {
-    emoji: "📊",
+    icon: BarChart3Icon,
     name: "통계 분석가",
     job: "실제 수집된 데이터만으로 읽기 전용 운영 리포트를 만듭니다.",
     href: "/admin/office/analytics",

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { UserIcon, PlusIcon, LogOutIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/auth/actions";
 import { AdminNavMenu } from "@/components/admin-nav-menu";
@@ -26,12 +27,12 @@ export async function NavBar() {
   }
 
   return (
-    <header className="border-b bg-background">
-      <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-y-2 px-4 py-3 lg:max-w-6xl">
+    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md">
+      <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-y-2 px-4 py-2.5 lg:max-w-6xl">
         <Link href="/" className="flex items-center">
-          <Image src="/logo.png" alt="PickSide" width={400} height={200} priority className="h-24 w-auto" />
+          <Image src="/logo.png" alt="PickSide" width={400} height={200} priority className="h-14 w-auto" />
         </Link>
-        <nav className="flex flex-wrap items-center gap-2">
+        <nav className="flex flex-wrap items-center gap-1.5">
           {user ? (
             <>
               {isAdmin && <AdminNavMenu />}
@@ -39,16 +40,26 @@ export async function NavBar() {
                 variant="ghost"
                 size="sm"
                 nativeButton={false}
-                render={<Link href="/me">마이페이지</Link>}
+                render={
+                  <Link href="/me">
+                    <UserIcon />
+                    마이페이지
+                  </Link>
+                }
               />
               <Button
-                variant="ghost"
                 size="sm"
                 nativeButton={false}
-                render={<Link href="/polls/new">투표 만들기</Link>}
+                render={
+                  <Link href="/polls/new">
+                    <PlusIcon />
+                    투표 만들기
+                  </Link>
+                }
               />
               <form action={signOut}>
                 <Button type="submit" size="sm" variant="outline">
+                  <LogOutIcon />
                   로그아웃
                 </Button>
               </form>
@@ -57,10 +68,15 @@ export async function NavBar() {
             <>
               <Button
                 variant="ghost"
+                size="sm"
                 nativeButton={false}
                 render={<Link href="/login">로그인</Link>}
               />
-              <Button nativeButton={false} render={<Link href="/signup">회원가입</Link>} />
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={<Link href="/signup">회원가입</Link>}
+              />
             </>
           )}
         </nav>

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { UserIcon, FileTextIcon, MessageSquareIcon, ThumbsUpIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { UsernameForm } from "@/components/username-form";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +57,10 @@ export default async function MyPage() {
     <div className="flex flex-1 justify-center px-4 py-12">
       <div className="flex w-full max-w-lg flex-col gap-8">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">마이페이지</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+            <UserIcon className="size-6 text-primary" />
+            마이페이지
+          </h1>
         </div>
 
         <Card>
@@ -69,7 +73,8 @@ export default async function MyPage() {
         </Card>
 
         <div className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium text-muted-foreground">
+          <h2 className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+            <FileTextIcon className="size-4" />
             내가 작성한 투표 ({myPolls?.length ?? 0})
           </h2>
           {(!myPolls || myPolls.length === 0) && (
@@ -98,7 +103,8 @@ export default async function MyPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium text-muted-foreground">
+          <h2 className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+            <MessageSquareIcon className="size-4" />
             내가 댓글 단 글 ({myComments?.length ?? 0})
           </h2>
           {(!myComments || myComments.length === 0) && (
@@ -124,7 +130,8 @@ export default async function MyPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium text-muted-foreground">
+          <h2 className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+            <ThumbsUpIcon className="size-4" />
             내가 투표한 글 ({myVotes?.length ?? 0})
           </h2>
           {(!myVotes || myVotes.length === 0) && (

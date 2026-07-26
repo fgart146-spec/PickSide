@@ -23,6 +23,15 @@ import { Input } from "@/components/ui/input";
 import { AdSlot } from "@/components/ad-slot";
 import { NoticeBanner } from "@/components/notice-banner";
 import { HomePopup } from "@/components/home-popup";
+import {
+  ShuffleIcon,
+  DicesIcon,
+  ScaleIcon,
+  PinIcon,
+  StarIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "lucide-react";
 
 // Escape ILIKE wildcards so a literal "%" or "_" in the search box is
 // matched as text, not treated as a pattern wildcard.
@@ -234,13 +243,23 @@ export default async function Home({
           size="sm"
           variant="outline"
           nativeButton={false}
-          render={<Link href="/polls/all">🔀 전체 랜덤투표</Link>}
+          render={
+            <Link href="/polls/all">
+              <ShuffleIcon />
+              전체 랜덤투표
+            </Link>
+          }
         />
         <Button
           size="sm"
           variant="outline"
           nativeButton={false}
-          render={<Link href="/polls/speed">🎲 스피드 랜덤투표 시작하기</Link>}
+          render={
+            <Link href="/polls/speed">
+              <DicesIcon />
+              스피드 랜덤투표 시작하기
+            </Link>
+          }
         />
       </div>
     ),
@@ -367,8 +386,9 @@ export default async function Home({
           ))}
 
           <div className="flex flex-col gap-4 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              둘 중 뭐가 나아? 🤔
+            <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+              <ScaleIcon className="size-6 text-primary" />
+              둘 중 뭐가 나아?
             </h1>
             <Button
               size="sm"
@@ -450,8 +470,18 @@ export default async function Home({
                       <CardHeader>
                         <div className="mb-1 flex flex-wrap gap-1">
                           <Badge variant="outline">{poll.category}</Badge>
-                          {poll.is_pinned && <Badge>📌 고정</Badge>}
-                          {poll.is_featured && <Badge variant="secondary">⭐ 추천</Badge>}
+                          {poll.is_pinned && (
+                            <Badge>
+                              <PinIcon />
+                              고정
+                            </Badge>
+                          )}
+                          {poll.is_featured && (
+                            <Badge variant="secondary">
+                              <StarIcon />
+                              추천
+                            </Badge>
+                          )}
                         </div>
                         <CardTitle className="text-base">{poll.question}</CardTitle>
                         <CardDescription>
@@ -475,11 +505,17 @@ export default async function Home({
                   size="sm"
                   variant="outline"
                   nativeButton={false}
-                  render={<Link href={buildHref({ page: page - 1 })}>← 이전</Link>}
+                  render={
+                    <Link href={buildHref({ page: page - 1 })}>
+                      <ChevronLeftIcon />
+                      이전
+                    </Link>
+                  }
                 />
               ) : (
                 <Button size="sm" variant="outline" disabled>
-                  ← 이전
+                  <ChevronLeftIcon />
+                  이전
                 </Button>
               )}
               <span className="text-sm text-muted-foreground">{page} 페이지</span>
@@ -488,11 +524,17 @@ export default async function Home({
                   size="sm"
                   variant="outline"
                   nativeButton={false}
-                  render={<Link href={buildHref({ page: page + 1 })}>다음 →</Link>}
+                  render={
+                    <Link href={buildHref({ page: page + 1 })}>
+                      다음
+                      <ChevronRightIcon />
+                    </Link>
+                  }
                 />
               ) : (
                 <Button size="sm" variant="outline" disabled>
-                  다음 →
+                  다음
+                  <ChevronRightIcon />
                 </Button>
               )}
             </div>

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { ChevronUpIcon, ChevronDownIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { toggleSectionVisibility, moveSection } from "@/app/admin/home-sections/actions";
 import { HOME_SECTION_LABEL, type HomeSectionKey } from "@/lib/home-sections";
@@ -55,18 +56,25 @@ export default async function AdminHomeSectionsPage() {
                 </div>
                 <div className="flex items-center gap-1">
                   <form action={moveSection.bind(null, section.key, "up")}>
-                    <Button type="submit" size="sm" variant="ghost" disabled={i === 0}>
-                      ↑
+                    <Button
+                      type="submit"
+                      size="icon-sm"
+                      variant="ghost"
+                      disabled={i === 0}
+                      aria-label="위로"
+                    >
+                      <ChevronUpIcon />
                     </Button>
                   </form>
                   <form action={moveSection.bind(null, section.key, "down")}>
                     <Button
                       type="submit"
-                      size="sm"
+                      size="icon-sm"
                       variant="ghost"
                       disabled={i === (sections?.length ?? 1) - 1}
+                      aria-label="아래로"
                     >
-                      ↓
+                      <ChevronDownIcon />
                     </Button>
                   </form>
                   <form

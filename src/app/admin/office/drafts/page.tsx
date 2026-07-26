@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Image from "next/image";
+import { PencilIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient, PRIVATE_IMAGE_BUCKET } from "@/lib/supabase/service";
 import { OfficeNav } from "@/components/office-nav";
@@ -86,7 +87,10 @@ export default async function ContentPlannerPage() {
     <div className="flex flex-1 justify-center px-4 py-12">
       <div className="flex w-full max-w-2xl flex-col gap-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">✍️ 콘텐츠 기획자</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+            <PencilIcon className="size-6 text-primary" />
+            콘텐츠 기획자
+          </h1>
           <p className="text-sm text-muted-foreground">
             생성된 투표 초안은 항상 <b>검토 대기(pending)</b>로 저장됩니다. 승인하면 투표가 만들어져
             기존 <b>승인 관리</b> 화면으로 넘어갑니다.

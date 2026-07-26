@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { ChevronRightIcon, CheckIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { castVote } from "@/app/polls/actions";
 import { deleteComment } from "@/app/comments/actions";
@@ -123,7 +124,12 @@ export default async function PollPage({
             size="sm"
             variant="outline"
             nativeButton={false}
-            render={<Link href="/polls/random">다음 투표 →</Link>}
+            render={
+              <Link href="/polls/random">
+                다음 투표
+                <ChevronRightIcon />
+              </Link>
+            }
           />
         </div>
         <Card className="w-full">
@@ -232,7 +238,10 @@ export default async function PollPage({
                       <span className="font-medium">
                         {option.label}
                         {isMine && (
-                          <span className="ml-2 text-xs text-primary">내 선택</span>
+                          <span className="ml-2 inline-flex items-center gap-0.5 align-middle text-xs font-medium text-primary">
+                            <CheckIcon className="size-3.5" />
+                            내 선택
+                          </span>
                         )}
                       </span>
                       <span className="text-sm text-muted-foreground">

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { ShieldIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { OfficeNav } from "@/components/office-nav";
@@ -78,7 +79,10 @@ export default async function ReportReviewerPage() {
     <div className="flex flex-1 justify-center px-4 py-12">
       <div className="flex w-full max-w-2xl flex-col gap-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">🛡️ 신고 검토관</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+            <ShieldIcon className="size-6 text-primary" />
+            신고 검토관
+          </h1>
           <p className="text-sm text-muted-foreground">
             신고와 대상 콘텐츠를 분석해 처리 방향을 <b>추천</b>합니다. 실제 반영은 아래 버튼으로
             관리자가 결정합니다.

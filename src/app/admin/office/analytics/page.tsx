@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { BarChart3Icon, AlertTriangleIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { OfficeNav } from "@/components/office-nav";
@@ -68,7 +69,10 @@ export default async function AnalyticsPage() {
     <div className="flex flex-1 justify-center px-4 py-12">
       <div className="flex w-full max-w-2xl flex-col gap-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">📊 통계 분석가</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+            <BarChart3Icon className="size-6 text-primary" />
+            통계 분석가
+          </h1>
           <p className="text-sm text-muted-foreground">
             실제 수집된 데이터만으로 <b>읽기 전용</b> 리포트를 만듭니다. 수집하지 않는 지표는
             임의로 만들지 않고 경고로 표시합니다.
@@ -159,7 +163,7 @@ export default async function AnalyticsPage() {
                         <Section title="핵심 요약" items={r.highlights ?? []} />
                       )}
                       {(r.warnings?.length ?? 0) > 0 && (
-                        <Section title="⚠️ 확인 필요" items={r.warnings ?? []} tone="warn" />
+                        <Section title="확인 필요" items={r.warnings ?? []} tone="warn" />
                       )}
                       {(r.recommendations?.length ?? 0) > 0 && (
                         <Section title="개선 제안" items={r.recommendations ?? []} />
@@ -205,7 +209,15 @@ function Section({
 }) {
   return (
     <div>
-      <div className="text-xs font-medium text-muted-foreground">{title}</div>
+      <div
+        className={
+          "flex items-center gap-1 text-xs font-medium " +
+          (tone === "warn" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")
+        }
+      >
+        {tone === "warn" && <AlertTriangleIcon className="size-3.5" />}
+        {title}
+      </div>
       <ul className="mt-1 list-inside list-disc space-y-0.5">
         {items.map((it, i) => (
           <li

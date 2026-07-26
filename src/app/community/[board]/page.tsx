@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { PlusIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { isCommunityBoard, BOARD_LABEL, type CommunityBoard } from "@/lib/community-boards";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -128,7 +129,12 @@ export default async function BoardPage({
             size="sm"
             nativeButton={false}
             className="self-start sm:self-auto"
-            render={<Link href={`/community/${board}/new`}>글쓰기</Link>}
+            render={
+              <Link href={`/community/${board}/new`}>
+                <PlusIcon />
+                글쓰기
+              </Link>
+            }
           />
         </div>
 

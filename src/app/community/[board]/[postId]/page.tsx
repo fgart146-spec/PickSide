@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { ThumbsUpIcon, ChevronRightIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { isCommunityBoard, BOARD_LABEL } from "@/lib/community-boards";
 import { toggleLike, deletePost } from "@/app/community/actions";
@@ -107,7 +108,12 @@ export default async function CommunityPostPage({
             size="sm"
             variant="outline"
             nativeButton={false}
-            render={<Link href={`/community/${board}/random`}>다음 글 →</Link>}
+            render={
+              <Link href={`/community/${board}/random`}>
+                다음 글
+                <ChevronRightIcon />
+              </Link>
+            }
           />
         </div>
         <Card>
@@ -152,7 +158,8 @@ export default async function CommunityPostPage({
             <div className="flex items-center gap-2">
               <form action={toggleLike.bind(null, board, postId)}>
                 <Button type="submit" size="sm" variant={hasLiked ? "default" : "outline"}>
-                  👍 좋아요 {likeCount}
+                  <ThumbsUpIcon />
+                  좋아요 {likeCount}
                 </Button>
               </form>
               {currentUserId && !isAnonymous && !isOwner && (

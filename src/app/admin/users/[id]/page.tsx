@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { ChevronLeftIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { unsuspendUser, banUser, unbanUser } from "@/app/admin/users/actions";
 import { AdminSuspendForm } from "@/components/admin-suspend-form";
@@ -91,8 +92,12 @@ export default async function AdminUserDetailPage({
     <div className="flex flex-1 justify-center px-4 py-12">
       <div className="flex w-full max-w-lg flex-col gap-8">
         <div>
-          <Link href="/admin/users" className="text-sm text-muted-foreground underline underline-offset-4">
-            ← 사용자 목록
+          <Link
+            href="/admin/users"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:underline"
+          >
+            <ChevronLeftIcon className="size-4" />
+            사용자 목록
           </Link>
           <div className="mt-2 flex items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight">{target.username}</h1>
