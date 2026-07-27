@@ -4,6 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "@/app/admin/actions";
 import { SITE_CONTENT_BUCKET } from "@/lib/supabase/service";
 import { logAdminAction } from "@/lib/audit";
+import { kstDatetimeLocalToUtcIso } from "@/lib/datetime";
 
 export type BannerFormState = { error: string | null };
 
@@ -47,8 +48,8 @@ export async function createBanner(
       kind,
       title,
       link_url: linkUrl,
-      starts_at: startsAtInput ? new Date(startsAtInput).toISOString() : null,
-      ends_at: endsAtInput ? new Date(endsAtInput).toISOString() : null,
+      starts_at: kstDatetimeLocalToUtcIso(startsAtInput),
+      ends_at: kstDatetimeLocalToUtcIso(endsAtInput),
     })
     .select("id")
     .single();
