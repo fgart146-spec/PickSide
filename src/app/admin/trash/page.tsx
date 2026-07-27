@@ -10,8 +10,11 @@ import {
   permanentlyDeleteCommunityPost,
   restoreCommunityComment,
   permanentlyDeleteCommunityComment,
+  restoreAllTrash,
+  permanentlyDeleteAllTrash,
 } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import {
   Card,
   CardContent,
@@ -23,17 +26,41 @@ import {
 function TrashSection({
   title,
   count,
+  restoreAllAction,
+  deleteAllAction,
   children,
 }: {
   title: string;
   count: number;
+  restoreAllAction: () => Promise<void>;
+  deleteAllAction: () => Promise<void>;
   children: ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-sm font-medium text-muted-foreground">
-        {title} ({count})
-      </h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-medium text-muted-foreground">
+          {title} ({count})
+        </h2>
+        {count > 0 && (
+          <div className="flex gap-2">
+            <form action={restoreAllAction}>
+              <Button type="submit" size="sm" variant="outline">
+                전체 복구
+              </Button>
+            </form>
+            <form action={deleteAllAction}>
+              <ConfirmSubmitButton
+                size="sm"
+                variant="destructive"
+                confirmMessage={`${title} ${count}개를 영구 삭제할까요? 되돌릴 수 없습니다.`}
+              >
+                전체 영구 삭제
+              </ConfirmSubmitButton>
+            </form>
+          </div>
+        )}
+      </div>
       {count === 0 && <p className="text-sm text-muted-foreground">비어 있습니다.</p>}
       {children}
     </div>
@@ -55,9 +82,13 @@ function RestoreDeleteActions({
         </Button>
       </form>
       <form action={deleteAction}>
-        <Button type="submit" size="sm" variant="destructive">
+        <ConfirmSubmitButton
+          size="sm"
+          variant="destructive"
+          confirmMessage="영구 삭제할까요? 되돌릴 수 없습니다."
+        >
           영구 삭제
-        </Button>
+        </ConfirmSubmitButton>
       </form>
     </div>
   );
@@ -121,7 +152,12 @@ export default async function AdminTrashPage() {
           </p>
         </div>
 
-        <TrashSection title="투표" count={deletedPolls?.length ?? 0}>
+        <TrashSection
+          title="투표"
+          count={deletedPolls?.length ?? 0}
+          restoreAllAction={restoreAllTrash.bind(null, "polls")}
+          deleteAllAction={permanentlyDeleteAllTrash.bind(null, "polls")}
+        >
           {deletedPolls?.map((poll) => (
             <Card key={poll.id}>
               <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -135,7 +171,12 @@ export default async function AdminTrashPage() {
           ))}
         </TrashSection>
 
-        <TrashSection title="투표 댓글" count={deletedComments?.length ?? 0}>
+        <TrashSection
+          title="투표 댓글"
+          count={deletedComments?.length ?? 0}
+          restoreAllAction={restoreAllTrash.bind(null, "comments")}
+          deleteAllAction={permanentlyDeleteAllTrash.bind(null, "comments")}
+        >
           {deletedComments?.map((comment) => {
             const pollQuestion =
               (comment as unknown as { polls: { question: string } | null }).polls
@@ -159,7 +200,12 @@ export default async function AdminTrashPage() {
           })}
         </TrashSection>
 
-        <TrashSection title="커뮤니티 게시글" count={deletedPosts?.length ?? 0}>
+        <TrashSection
+          title="커뮤니티 게시글"
+          count={deletedPosts?.length ?? 0}
+          restoreAllAction={restoreAllTrash.bind(null, "community_posts")}
+          deleteAllAction={permanentlyDeleteAllTrash.bind(null, "community_posts")}
+        >
           {deletedPosts?.map((post) => (
             <Card key={post.id}>
               <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -176,6 +222,8 @@ export default async function AdminTrashPage() {
         <TrashSection
           title="커뮤니티 댓글"
           count={deletedCommunityComments?.length ?? 0}
+          restoreAllAction={restoreAllTrash.bind(null, "community_comments")}
+          deleteAllAction={permanentlyDeleteAllTrash.bind(null, "community_comments")}
         >
           {deletedCommunityComments?.map((comment) => {
             const postTitle =

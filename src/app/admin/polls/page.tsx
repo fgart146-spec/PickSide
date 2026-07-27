@@ -2,9 +2,15 @@ import { redirect } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { approvePoll, rejectPoll, adminDeletePoll } from "@/app/admin/actions";
+import {
+  approvePoll,
+  rejectPoll,
+  adminDeletePoll,
+  approveAllPending,
+} from "@/app/admin/actions";
 import { PRIVATE_IMAGE_BUCKET } from "@/lib/supabase/service";
 import { Button } from "@/components/ui/button";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -87,9 +93,21 @@ export default async function AdminPollsPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium text-muted-foreground">
-            승인 대기 ({pending.length})
-          </h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-medium text-muted-foreground">
+              승인 대기 ({pending.length})
+            </h2>
+            {pending.length > 0 && (
+              <form action={approveAllPending}>
+                <ConfirmSubmitButton
+                  size="sm"
+                  confirmMessage={`대기 중인 투표 ${pending.length}개를 모두 승인할까요?`}
+                >
+                  대기 전체 승인
+                </ConfirmSubmitButton>
+              </form>
+            )}
+          </div>
           {pending.length === 0 && (
             <p className="text-sm text-muted-foreground">대기 중인 투표가 없습니다.</p>
           )}

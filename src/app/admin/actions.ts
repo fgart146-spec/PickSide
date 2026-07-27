@@ -185,15 +185,20 @@ export async function dismissReport(reportId: string, formData: FormData) {
 
 type TrashTable = "polls" | "comments" | "community_posts" | "community_comments";
 
+// Trash mutations run with the service-role client: the caller is already
+// verified as an admin, and there is no admin-level RLS policy for hard
+// DELETE on these tables, so the RLS-bound cookie client would silently
+// delete zero rows and leave items stuck in the trash.
 async function restore(table: TrashTable, id: string) {
-  const { supabase, adminId } = await requireAdmin();
+  const { adminId } = await requireAdmin();
+  const service = createServiceClient();
 
-  const { error } = await supabase.from(table).update({ deleted_at: null }).eq("id", id);
+  const { error } = await service.from(table).update({ deleted_at: null }).eq("id", id);
   if (error) {
     throw new Error(error.message);
   }
 
-  await logAdminAction(supabase, {
+  await logAdminAction(service, {
     adminId,
     action: `${table}.restore`,
     targetType: table,
@@ -204,14 +209,15 @@ async function restore(table: TrashTable, id: string) {
 }
 
 async function permanentlyDelete(table: TrashTable, id: string) {
-  const { supabase, adminId } = await requireAdmin();
+  const { adminId } = await requireAdmin();
+  const service = createServiceClient();
 
-  const { error } = await supabase.from(table).delete().eq("id", id);
+  const { error } = await service.from(table).delete().eq("id", id);
   if (error) {
     throw new Error(error.message);
   }
 
-  await logAdminAction(supabase, {
+  await logAdminAction(service, {
     adminId,
     action: `${table}.permanent_delete`,
     targetType: table,
@@ -249,4 +255,103 @@ export async function restoreCommunityComment(id: string) {
 }
 export async function permanentlyDeleteCommunityComment(id: string) {
   await permanentlyDelete("community_comments", id);
+}
+
+// ---------------------------------------------------------------------------
+// Bulk actions
+// ---------------------------------------------------------------------------
+
+async function revalidateAfterTrashChange(table: TrashTable) {
+  revalidatePath("/admin/trash");
+  if (table === "polls") {
+    revalidatePath("/admin/polls");
+    revalidatePath("/");
+    revalidateTag("home-portal", { expire: 0 });
+  }
+}
+
+/** Restore every trashed row of one type. */
+export async function restoreAllTrash(table: TrashTable) {
+  const { adminId } = await requireAdmin();
+  const service = createServiceClient();
+
+  const { error } = await service
+    .from(table)
+    .update({ deleted_at: null })
+    .not("deleted_at", "is", null);
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  await logAdminAction(service, {
+    adminId,
+    action: `${table}.restore_all`,
+    targetType: table,
+    targetId: null,
+  });
+
+  await revalidateAfterTrashChange(table);
+}
+
+/** Permanently delete every trashed row of one type. */
+export async function permanentlyDeleteAllTrash(table: TrashTable) {
+  const { adminId } = await requireAdmin();
+  const service = createServiceClient();
+
+  const { error } = await service.from(table).delete().not("deleted_at", "is", null);
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  await logAdminAction(service, {
+    adminId,
+    action: `${table}.permanent_delete_all`,
+    targetType: table,
+    targetId: null,
+  });
+
+  await revalidateAfterTrashChange(table);
+}
+
+/** Approve every pending poll at once (mirrors approvePoll for each). */
+export async function approveAllPending() {
+  const { adminId } = await requireAdmin();
+  const service = createServiceClient();
+
+  const { data: pendings } = await service
+    .from("polls")
+    .select("id")
+    .eq("status", "pending")
+    .is("deleted_at", null);
+
+  const ids = (pendings ?? []).map((p) => p.id);
+  if (ids.length === 0) return;
+
+  // Move each poll's images into the public bucket before publishing.
+  for (const id of ids) {
+    await promoteImagesToPublic(id);
+  }
+
+  const { error } = await service
+    .from("polls")
+    .update({ status: "published" })
+    .in("id", ids);
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  await service.from("ai_poll_drafts").update({ status: "published" }).in("poll_id", ids);
+
+  await logAdminAction(service, {
+    adminId,
+    action: "poll.approve_all",
+    targetType: "poll",
+    targetId: null,
+    reason: `${ids.length}건 일괄 승인`,
+  });
+
+  revalidatePath("/admin/polls");
+  revalidatePath("/admin/office/drafts");
+  revalidatePath("/");
+  revalidateTag("home-portal", { expire: 0 });
 }
