@@ -5,11 +5,15 @@ import { toggleBannerActive, deleteBanner } from "@/app/admin/banners/actions";
 import { AdminBannerCreateForm } from "@/components/admin-banner-create-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 function BannerList({
   banners,
   imageUrlFor,
+  page,
+  hasNext,
+  makeHref,
 }: {
   banners: {
     id: string;
@@ -21,6 +25,9 @@ function BannerList({
     ends_at: string | null;
   }[];
   imageUrlFor: (path: string) => string;
+  page: number;
+  hasNext: boolean;
+  makeHref: (page: number) => string;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -65,11 +72,16 @@ function BannerList({
         </Card>
       ))}
       {banners.length === 0 && <p className="text-sm text-muted-foreground">없습니다.</p>}
+      <Pagination page={page} hasNext={hasNext} makeHref={makeHref} />
     </div>
   );
 }
 
-export default async function AdminBannersPage() {
+export default async function AdminBannersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ homePage?: string; eventPage?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -97,8 +109,28 @@ export default async function AdminBannersPage() {
   const imageUrlFor = (path: string) =>
     supabase.storage.from(SITE_CONTENT_BUCKET).getPublicUrl(path).data.publicUrl;
 
-  const eventBanners = banners?.filter((b) => b.kind === "event") ?? [];
-  const homeBanners = banners?.filter((b) => b.kind === "home") ?? [];
+  const allEvent = banners?.filter((b) => b.kind === "event") ?? [];
+  const allHome = banners?.filter((b) => b.kind === "home") ?? [];
+
+  const { homePage: homePageParam, eventPage: eventPageParam } = await searchParams;
+  const homePage = parsePage(homePageParam);
+  const eventPage = parsePage(eventPageParam);
+  const homeStart = (homePage - 1) * PAGE_SIZE;
+  const eventStart = (eventPage - 1) * PAGE_SIZE;
+  const homeBanners = allHome.slice(homeStart, homeStart + PAGE_SIZE);
+  const eventBanners = allEvent.slice(eventStart, eventStart + PAGE_SIZE);
+  const homeHasNext = allHome.length > homeStart + PAGE_SIZE;
+  const eventHasNext = allEvent.length > eventStart + PAGE_SIZE;
+
+  const bannerHref = (params: { homePage?: number; eventPage?: number }) => {
+    const sp = new URLSearchParams();
+    const h = params.homePage ?? homePage;
+    const e = params.eventPage ?? eventPage;
+    if (h > 1) sp.set("homePage", String(h));
+    if (e > 1) sp.set("eventPage", String(e));
+    const qs = sp.toString();
+    return qs ? `/admin/banners?${qs}` : "/admin/banners";
+  };
 
   return (
     <div className="flex flex-1 justify-center px-4 py-12">
@@ -120,7 +152,13 @@ export default async function AdminBannersPage() {
               <AdminBannerCreateForm kind="home" />
             </CardContent>
           </Card>
-          <BannerList banners={homeBanners} imageUrlFor={imageUrlFor} />
+          <BannerList
+            banners={homeBanners}
+            imageUrlFor={imageUrlFor}
+            page={homePage}
+            hasNext={homeHasNext}
+            makeHref={(p) => bannerHref({ homePage: p })}
+          />
         </div>
 
         <div className="flex flex-col gap-4 border-t pt-8">
@@ -133,7 +171,13 @@ export default async function AdminBannersPage() {
               <AdminBannerCreateForm kind="event" />
             </CardContent>
           </Card>
-          <BannerList banners={eventBanners} imageUrlFor={imageUrlFor} />
+          <BannerList
+            banners={eventBanners}
+            imageUrlFor={imageUrlFor}
+            page={eventPage}
+            hasNext={eventHasNext}
+            makeHref={(p) => bannerHref({ eventPage: p })}
+          />
         </div>
       </div>
     </div>

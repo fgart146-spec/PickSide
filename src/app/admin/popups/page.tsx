@@ -5,9 +5,14 @@ import { togglePopupActive, deletePopup } from "@/app/admin/popups/actions";
 import { AdminPopupCreateForm } from "@/components/admin-popup-create-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default async function AdminPopupsPage() {
+export default async function AdminPopupsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -27,10 +32,19 @@ export default async function AdminPopupsPage() {
     redirect("/");
   }
 
-  const { data: popups } = await supabase
+  const { page: pageParam } = await searchParams;
+  const page = parsePage(pageParam);
+  const from = (page - 1) * PAGE_SIZE;
+
+  const { data } = await supabase
     .from("popups")
     .select("id, title, body, image_path, link_url, is_active, starts_at, ends_at")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(from, from + PAGE_SIZE);
+
+  const rows = data ?? [];
+  const hasNext = rows.length > PAGE_SIZE;
+  const popups = rows.slice(0, PAGE_SIZE);
 
   return (
     <div className="flex flex-1 justify-center px-4 py-12">
@@ -103,9 +117,14 @@ export default async function AdminPopupsPage() {
               </CardContent>
             </Card>
           ))}
-          {(!popups || popups.length === 0) && (
+          {popups.length === 0 && (
             <p className="text-sm text-muted-foreground">등록된 팝업이 없습니다.</p>
           )}
+          <Pagination
+            page={page}
+            hasNext={hasNext}
+            makeHref={(p) => (p > 1 ? `/admin/popups?page=${p}` : "/admin/popups")}
+          />
         </div>
       </div>
     </div>

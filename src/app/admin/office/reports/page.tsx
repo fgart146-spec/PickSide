@@ -13,6 +13,7 @@ import {
 } from "@/app/admin/office/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 import {
   Card,
   CardContent,
@@ -34,7 +35,11 @@ function fmt(iso: string): string {
   return new Date(iso).toLocaleString("ko-KR");
 }
 
-export default async function ReportReviewerPage() {
+export default async function ReportReviewerPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -72,6 +77,12 @@ export default async function ReportReviewerPage() {
   const pending = rows.filter((r) => r.status === "analyzed" || r.status === "admin_reviewing");
   const held = rows.filter((r) => r.status === "held");
   const done = rows.filter((r) => r.status === "resolved");
+
+  const { page: pageParam } = await searchParams;
+  const page = parsePage(pageParam);
+  const doneStart = (page - 1) * PAGE_SIZE;
+  const donePage = done.slice(doneStart, doneStart + PAGE_SIZE);
+  const doneHasNext = done.length > doneStart + PAGE_SIZE;
 
   const pendingCount = (queuedJob?.request as { reports?: unknown[] } | null)?.reports?.length ?? 0;
 
@@ -217,12 +228,17 @@ export default async function ReportReviewerPage() {
           <h2 className="text-sm font-medium text-muted-foreground">
             처리 완료 ({done.length})
           </h2>
-          {done.slice(0, 30).map((r) => (
+          {donePage.map((r) => (
             <div key={r.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm text-muted-foreground">
               <span>{r.admin_decision ?? REPORT_REVIEW_STATUS_LABEL[r.status as ReportReviewStatus]}</span>
               <span className="text-xs">{fmt(r.created_at)}</span>
             </div>
           ))}
+          <Pagination
+            page={page}
+            hasNext={doneHasNext}
+            makeHref={(p) => (p > 1 ? `/admin/office/reports?page=${p}` : "/admin/office/reports")}
+          />
         </div>
       </div>
     </div>

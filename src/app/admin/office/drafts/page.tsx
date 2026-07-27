@@ -17,6 +17,7 @@ import {
 import { POLL_CATEGORIES } from "@/lib/categories";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 import {
   Card,
   CardContent,
@@ -31,7 +32,11 @@ import {
   type RiskLevel,
 } from "@/lib/ai/constants";
 
-export default async function ContentPlannerPage() {
+export default async function ContentPlannerPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -67,6 +72,12 @@ export default async function ContentPlannerPage() {
   const rows = drafts ?? [];
   const pending = rows.filter((d) => d.status === "pending");
   const others = rows.filter((d) => d.status !== "pending");
+
+  const { page: pageParam } = await searchParams;
+  const page = parsePage(pageParam);
+  const othersStart = (page - 1) * PAGE_SIZE;
+  const othersPage = others.slice(othersStart, othersStart + PAGE_SIZE);
+  const othersHasNext = others.length > othersStart + PAGE_SIZE;
 
   // Signed thumbnail URLs for draft images (they live in the private bucket).
   const thumbs = new Map<string, { a: string | null; b: string | null }>();
@@ -294,7 +305,7 @@ export default async function ContentPlannerPage() {
           <h2 className="text-sm font-medium text-muted-foreground">
             처리 결과 ({others.length})
           </h2>
-          {others.slice(0, 40).map((d) => (
+          {othersPage.map((d) => (
             <div
               key={d.id}
               className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
@@ -305,6 +316,11 @@ export default async function ContentPlannerPage() {
               </Badge>
             </div>
           ))}
+          <Pagination
+            page={page}
+            hasNext={othersHasNext}
+            makeHref={(p) => (p > 1 ? `/admin/office/drafts?page=${p}` : "/admin/office/drafts")}
+          />
         </div>
       </div>
     </div>

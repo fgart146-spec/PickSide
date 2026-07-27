@@ -4,9 +4,14 @@ import { toggleNoticeActive, deleteNotice } from "@/app/admin/notices/actions";
 import { AdminNoticeCreateForm } from "@/components/admin-notice-create-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default async function AdminNoticesPage() {
+export default async function AdminNoticesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -26,10 +31,19 @@ export default async function AdminNoticesPage() {
     redirect("/");
   }
 
-  const { data: notices } = await supabase
+  const { page: pageParam } = await searchParams;
+  const page = parsePage(pageParam);
+  const from = (page - 1) * PAGE_SIZE;
+
+  const { data } = await supabase
     .from("notices")
     .select("id, title, body, is_active, created_at")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(from, from + PAGE_SIZE);
+
+  const rows = data ?? [];
+  const hasNext = rows.length > PAGE_SIZE;
+  const notices = rows.slice(0, PAGE_SIZE);
 
   return (
     <div className="flex flex-1 justify-center px-4 py-12">
@@ -76,9 +90,14 @@ export default async function AdminNoticesPage() {
               </CardContent>
             </Card>
           ))}
-          {(!notices || notices.length === 0) && (
+          {notices.length === 0 && (
             <p className="text-sm text-muted-foreground">등록된 공지가 없습니다.</p>
           )}
+          <Pagination
+            page={page}
+            hasNext={hasNext}
+            makeHref={(p) => (p > 1 ? `/admin/notices?page=${p}` : "/admin/notices")}
+          />
         </div>
       </div>
     </div>
