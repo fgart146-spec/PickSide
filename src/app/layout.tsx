@@ -30,7 +30,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body
-        className="min-h-full flex flex-col bg-[url('/site-background.png')] bg-cover bg-center bg-fixed bg-no-repeat"
+        className="min-h-full flex flex-col bg-[url('/site-background.webp')] bg-cover bg-center bg-fixed bg-no-repeat"
       >
         <NavBar />
         {children}

@@ -30,7 +30,7 @@ export async function NavBar() {
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-y-2 px-4 py-2.5 lg:max-w-6xl">
         <Link href="/" className="flex items-center">
-          <Image src="/logo.png" alt="PickSide" width={400} height={200} priority className="h-14 w-auto" />
+          <Image src="/logo.webp" alt="PickSide" width={720} height={360} priority className="h-14 w-auto" />
         </Link>
         <nav className="flex flex-wrap items-center gap-1.5">
           {user ? (

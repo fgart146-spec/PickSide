@@ -4,7 +4,7 @@ import { PUBLIC_IMAGE_BUCKET } from "@/lib/supabase/service";
 import {
   pickDailySpeedGamePolls,
   buildSpeedGameQuestions,
-  type PollWithOptionsAndVotes,
+  type PollWithOptionCounts,
 } from "@/lib/speed-game";
 import { SpeedGame } from "@/components/speed-game";
 
@@ -14,7 +14,7 @@ export default async function SpeedGamePage() {
   const [{ data: polls }, { data: auth }] = await Promise.all([
     supabase
       .from("polls")
-      .select("id, question, category, poll_options(id, label, image_path), votes(option_id, voter_id)")
+      .select("id, question, category, poll_options(id, label, image_path, votes(count))")
       .eq("status", "published")
       .is("deleted_at", null)
       .order("id"),
@@ -25,10 +25,20 @@ export default async function SpeedGamePage() {
     redirect("/");
   }
 
-  const daily = pickDailySpeedGamePolls(polls as unknown as PollWithOptionsAndVotes[], 10);
+  // Only the viewer's own votes (to mark their prior pick) — not every vote row.
+  const myVoteByPoll: Record<string, string> = {};
+  if (auth.user) {
+    const { data: myVotes } = await supabase
+      .from("votes")
+      .select("poll_id, option_id")
+      .eq("voter_id", auth.user.id);
+    for (const v of myVotes ?? []) myVoteByPoll[v.poll_id] = v.option_id;
+  }
+
+  const daily = pickDailySpeedGamePolls(polls as unknown as PollWithOptionCounts[], 10);
   const questions = buildSpeedGameQuestions(
     daily,
-    auth.user?.id ?? null,
+    myVoteByPoll,
     (path) => supabase.storage.from(PUBLIC_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl
   );
 

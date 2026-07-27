@@ -20,37 +20,35 @@ export function pickDailySpeedGamePolls<T>(items: T[], count = 10): T[] {
   return seededShuffle(items, today).slice(0, count);
 }
 
-export type PollWithOptionsAndVotes = {
+// Per-option vote counts come pre-aggregated from the DB (votes(count)) instead
+// of transferring every vote row; the viewer's own votes arrive as a small map.
+export type PollWithOptionCounts = {
   id: string;
   question: string;
   category: string;
-  poll_options: { id: string; label: string; image_path: string | null }[];
-  votes: { option_id: string; voter_id: string }[];
+  poll_options: {
+    id: string;
+    label: string;
+    image_path: string | null;
+    votes: { count: number }[];
+  }[];
 };
 
 export function buildSpeedGameQuestions(
-  polls: PollWithOptionsAndVotes[],
-  voterId: string | null,
+  polls: PollWithOptionCounts[],
+  myVoteByPoll: Record<string, string>,
   imageUrlFor: (path: string) => string
 ) {
-  return polls.map((poll) => {
-    const tally: Record<string, number> = {};
-    for (const vote of poll.votes) {
-      tally[vote.option_id] = (tally[vote.option_id] ?? 0) + 1;
-    }
-    const myVote = voterId ? (poll.votes.find((v) => v.voter_id === voterId)?.option_id ?? null) : null;
-
-    return {
-      pollId: poll.id,
-      question: poll.question,
-      category: poll.category,
-      options: poll.poll_options.map((option) => ({
-        id: option.id,
-        label: option.label,
-        imageUrl: option.image_path ? imageUrlFor(option.image_path) : null,
-        voteCount: tally[option.id] ?? 0,
-      })),
-      alreadyVotedOptionId: myVote,
-    };
-  });
+  return polls.map((poll) => ({
+    pollId: poll.id,
+    question: poll.question,
+    category: poll.category,
+    options: poll.poll_options.map((option) => ({
+      id: option.id,
+      label: option.label,
+      imageUrl: option.image_path ? imageUrlFor(option.image_path) : null,
+      voteCount: option.votes[0]?.count ?? 0,
+    })),
+    alreadyVotedOptionId: myVoteByPoll[poll.id] ?? null,
+  }));
 }

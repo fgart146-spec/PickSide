@@ -36,18 +36,17 @@ export class ManualClaudeCodeProvider implements AiProvider {
   }
 }
 
-// Placeholder for a future automated backend. Wired to the existing Anthropic
-// client (src/lib/ai/client.ts) but intentionally NOT the default — the current
-// operating model forbids calling the Claude API from the app.
+// Placeholder for a future automated backend, intentionally NOT the default —
+// the current operating model forbids calling the Claude API from the app.
 export class ClaudeApiProvider implements AiProvider {
   readonly id = "claude_api";
   readonly label = "Claude API (자동)";
   readonly mode: ProviderMode = "api";
 
   async generate(): Promise<unknown> {
-    // Left unimplemented on purpose. To enable automatic runs later, implement
-    // per-worker prompts here (or delegate to the workers' buildRequest output)
-    // and set AI_PROVIDER=claude_api. The rest of the office is unchanged.
+    // Left unimplemented on purpose. To enable automatic runs later, add an
+    // API client + per-worker prompts here and set AI_PROVIDER=claude_api.
+    // The rest of the office is unchanged.
     throw new Error("ClaudeApiProvider는 아직 활성화되지 않았습니다.");
   }
 }

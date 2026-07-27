@@ -5,13 +5,10 @@ import { createClient } from "@/lib/supabase/server";
 import { isCommunityBoard, BOARD_LABEL, type CommunityBoard } from "@/lib/community-boards";
 import { BrowseSidebar } from "@/components/browse-sidebar";
 import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
+import { escapeLike } from "@/lib/search";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-function escapeLike(value: string) {
-  return value.replace(/[%_\\]/g, (char) => `\\${char}`);
-}
 
 const SORT_OPTIONS = ["latest", "popular", "comments"] as const;
 type SortOption = (typeof SORT_OPTIONS)[number];

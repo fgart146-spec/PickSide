@@ -5,11 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
+import { escapeLike } from "@/lib/search";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-function escapeLike(value: string) {
-  return value.replace(/[%_\\]/g, (char) => `\\${char}`);
-}
 
 function statusBadge(user: { banned_at: string | null; suspended_until: string | null }) {
   if (user.banned_at) {

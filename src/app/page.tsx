@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { POLL_CATEGORIES, isPollCategory, type PollCategory } from "@/lib/categories";
 import { COMMUNITY_BOARDS, BOARD_LABEL } from "@/lib/community-boards";
 import { type HomeSectionKey } from "@/lib/home-sections";
+import { escapeLike } from "@/lib/search";
 import {
   getHomePortalData,
   getPublishedPollPage,
@@ -32,12 +33,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "lucide-react";
-
-// Escape ILIKE wildcards so a literal "%" or "_" in the search box is
-// matched as text, not treated as a pattern wildcard.
-function escapeLike(value: string) {
-  return value.replace(/[%_\\]/g, (char) => `\\${char}`);
-}
 
 const SORT_OPTIONS = ["latest", "popular", "comments"] as const;
 type SortOption = PollSort;

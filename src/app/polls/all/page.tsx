@@ -5,7 +5,7 @@ import { POLL_CATEGORIES, isPollCategory } from "@/lib/categories";
 import {
   pickDailySpeedGamePolls,
   buildSpeedGameQuestions,
-  type PollWithOptionsAndVotes,
+  type PollWithOptionCounts,
 } from "@/lib/speed-game";
 import { SpeedGame } from "@/components/speed-game";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ export default async function AllRandomPollsPage({
 
   let query = supabase
     .from("polls")
-    .select("id, question, category, poll_options(id, label, image_path), votes(option_id, voter_id)")
+    .select("id, question, category, poll_options(id, label, image_path, votes(count))")
     .eq("status", "published")
     .is("deleted_at", null);
   if (category) query = query.eq("category", category);
@@ -32,13 +32,23 @@ export default async function AllRandomPollsPage({
     supabase.auth.getUser(),
   ]);
 
+  // Only the viewer's own votes (to mark their prior pick) — not every vote row.
+  const myVoteByPoll: Record<string, string> = {};
+  if (auth.user) {
+    const { data: myVotes } = await supabase
+      .from("votes")
+      .select("poll_id, option_id")
+      .eq("voter_id", auth.user.id);
+    for (const v of myVotes ?? []) myVoteByPoll[v.poll_id] = v.option_id;
+  }
+
   const all = pickDailySpeedGamePolls(
-    (polls as unknown as PollWithOptionsAndVotes[]) ?? [],
+    (polls as unknown as PollWithOptionCounts[]) ?? [],
     polls?.length ?? 0
   );
   const questions = buildSpeedGameQuestions(
     all,
-    auth.user?.id ?? null,
+    myVoteByPoll,
     (path) => supabase.storage.from(PUBLIC_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl
   );
 
