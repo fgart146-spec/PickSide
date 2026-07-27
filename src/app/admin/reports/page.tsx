@@ -5,6 +5,7 @@ import { resolveReport, dismissReport } from "@/app/admin/actions";
 import { resolveCommunityReport, dismissCommunityReport } from "@/app/admin/community/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 import {
   Card,
   CardContent,
@@ -59,7 +60,11 @@ type UnifiedReport = {
   createdAt: string;
 };
 
-export default async function AdminReportsPage() {
+export default async function AdminReportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -163,6 +168,12 @@ export default async function AdminReportsPage() {
   const pending = unified.filter((r) => r.status === "pending");
   const handled = unified.filter((r) => r.status !== "pending");
 
+  const { page: pageParam } = await searchParams;
+  const page = parsePage(pageParam);
+  const handledStart = (page - 1) * PAGE_SIZE;
+  const handledPage = handled.slice(handledStart, handledStart + PAGE_SIZE);
+  const handledHasNext = handled.length > handledStart + PAGE_SIZE;
+
   return (
     <div className="flex flex-1 justify-center px-4 py-12">
       <div className="flex w-full max-w-lg flex-col gap-8">
@@ -243,7 +254,7 @@ export default async function AdminReportsPage() {
           <h2 className="text-sm font-medium text-muted-foreground">
             처리 완료 ({handled.length})
           </h2>
-          {handled.map((report) => (
+          {handledPage.map((report) => (
             <Card key={`${report.source}-${report.id}`}>
               <CardHeader className="flex-row items-center justify-between space-y-0">
                 <div>
@@ -262,6 +273,12 @@ export default async function AdminReportsPage() {
               </CardHeader>
             </Card>
           ))}
+
+          <Pagination
+            page={page}
+            hasNext={handledHasNext}
+            makeHref={(p) => (p > 1 ? `/admin/reports?page=${p}` : "/admin/reports")}
+          />
         </div>
       </div>
     </div>

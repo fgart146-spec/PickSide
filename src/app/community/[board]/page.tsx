@@ -3,6 +3,8 @@ import Link from "next/link";
 import { PlusIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { isCommunityBoard, BOARD_LABEL, type CommunityBoard } from "@/lib/community-boards";
+import { BrowseSidebar } from "@/components/browse-sidebar";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,25 +40,26 @@ export default async function BoardPage({
   searchParams,
 }: {
   params: Promise<{ board: string }>;
-  searchParams: Promise<{ q?: string; sort?: string }>;
+  searchParams: Promise<{ q?: string; sort?: string; page?: string }>;
 }) {
   const { board } = await params;
   if (!isCommunityBoard(board)) {
     notFound();
   }
 
-  const { q, sort: sortParam } = await searchParams;
+  const { q, sort: sortParam, page: pageParam } = await searchParams;
   const query = q?.trim() ?? "";
   const sort: SortOption = (SORT_OPTIONS as readonly string[]).includes(sortParam ?? "")
     ? (sortParam as SortOption)
     : "latest";
+  const page = parsePage(pageParam);
 
   const supabase = await createClient();
   const baseSelect =
     "id, title, view_count, created_at, profiles!community_posts_author_id_fkey(username), community_post_likes(count), community_comments(count)";
 
-  let posts: PostListItem[] | null;
-  let error: { message: string } | null;
+  let allPosts: PostListItem[] = [];
+  let error: { message: string } | null = null;
 
   if (!query) {
     const res = await supabase
@@ -65,7 +68,7 @@ export default async function BoardPage({
       .eq("board", board)
       .is("deleted_at", null)
       .limit(200);
-    posts = res.data as unknown as PostListItem[] | null;
+    allPosts = (res.data as unknown as PostListItem[]) ?? [];
     error = res.error;
   } else {
     const pattern = `%${escapeLike(query)}%`;
@@ -95,32 +98,36 @@ export default async function BoardPage({
     ]) {
       merged.set(post.id, post);
     }
-    posts = [...merged.values()];
+    allPosts = [...merged.values()];
   }
 
-  posts = posts
-    ?.slice()
-    .sort((a, b) => {
-      if (sort === "popular")
-        return countOf(b.community_post_likes) - countOf(a.community_post_likes);
-      if (sort === "comments")
-        return countOf(b.community_comments) - countOf(a.community_comments);
-      return a.created_at < b.created_at ? 1 : -1;
-    })
-    .slice(0, 50) ?? null;
+  const sorted = allPosts.slice().sort((a, b) => {
+    if (sort === "popular")
+      return countOf(b.community_post_likes) - countOf(a.community_post_likes);
+    if (sort === "comments")
+      return countOf(b.community_comments) - countOf(a.community_comments);
+    return a.created_at < b.created_at ? 1 : -1;
+  });
 
-  const buildHref = (overrides: { sort?: SortOption }) => {
+  const start = (page - 1) * PAGE_SIZE;
+  const posts = sorted.slice(start, start + PAGE_SIZE);
+  const hasNext = sorted.length > start + PAGE_SIZE;
+
+  const buildHref = (overrides: { sort?: SortOption; page?: number }) => {
     const params2 = new URLSearchParams();
     if (query) params2.set("q", query);
     const nextSort = overrides.sort ?? sort;
     if (nextSort !== "latest") params2.set("sort", nextSort);
+    if (overrides.page && overrides.page > 1) params2.set("page", String(overrides.page));
     const qs = params2.toString();
     return qs ? `/community/${board}?${qs}` : `/community/${board}`;
   };
 
   return (
-    <div className="flex flex-1 justify-center px-4 py-12">
-      <div className="flex w-full max-w-lg flex-col gap-6">
+    <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:items-start lg:gap-8">
+      <BrowseSidebar activeSort={sort} />
+
+      <div className="mx-auto flex w-full max-w-lg flex-col gap-6 lg:mx-0">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-semibold tracking-tight">
             {BOARD_LABEL[board as CommunityBoard]}
@@ -175,7 +182,7 @@ export default async function BoardPage({
           </Card>
         )}
 
-        {!error && posts?.length === 0 && (
+        {!error && posts.length === 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
@@ -189,7 +196,7 @@ export default async function BoardPage({
         )}
 
         <div className="flex flex-col gap-3">
-          {posts?.map((post) => (
+          {posts.map((post) => (
             <Link key={post.id} href={`/community/${board}/${post.id}`}>
               <Card className="transition-colors hover:bg-accent">
                 <CardHeader>
@@ -204,6 +211,8 @@ export default async function BoardPage({
             </Link>
           ))}
         </div>
+
+        <Pagination page={page} hasNext={hasNext} makeHref={(p) => buildHref({ page: p })} />
       </div>
     </div>
   );

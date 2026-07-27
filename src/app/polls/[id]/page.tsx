@@ -9,7 +9,7 @@ import { VsPoll } from "@/components/vs-poll";
 import { CommentForm } from "@/components/comment-form";
 import { ReportButton } from "@/components/report-button";
 import { AdSlot } from "@/components/ad-slot";
-import { CategoryNav, CommunityNav, SortNav } from "@/components/browse-nav";
+import { BrowseSidebar } from "@/components/browse-sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -110,20 +110,7 @@ export default async function PollPage({
 
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:items-start lg:gap-8">
-      <aside className="hidden lg:flex lg:flex-col lg:gap-6">
-        <div className="flex flex-col gap-1">
-          <span className="mb-1 text-xs font-medium text-muted-foreground">카테고리</span>
-          <CategoryNav />
-        </div>
-        <div className="flex flex-col gap-1 border-t pt-4">
-          <span className="mb-1 text-xs font-medium text-muted-foreground">커뮤니티</span>
-          <CommunityNav />
-        </div>
-        <div className="flex flex-col gap-1 border-t pt-4">
-          <span className="mb-1 text-xs font-medium text-muted-foreground">정렬</span>
-          <SortNav />
-        </div>
-      </aside>
+      <BrowseSidebar activeCategory={poll.category} />
 
       <div className="mx-auto flex w-full max-w-lg flex-col lg:mx-0">
         <div className="mb-4 flex justify-end">

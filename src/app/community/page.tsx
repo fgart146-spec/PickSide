@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { COMMUNITY_BOARDS, BOARD_LABEL } from "@/lib/community-boards";
+import { BrowseSidebar } from "@/components/browse-sidebar";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const BOARD_DESCRIPTION: Record<string, string> = {
@@ -11,8 +12,10 @@ const BOARD_DESCRIPTION: Record<string, string> = {
 
 export default function CommunityPage() {
   return (
-    <div className="flex flex-1 justify-center px-4 py-12">
-      <div className="flex w-full max-w-lg flex-col gap-6">
+    <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:items-start lg:gap-8">
+      <BrowseSidebar />
+
+      <div className="mx-auto flex w-full max-w-lg flex-col gap-6 lg:mx-0">
         <h1 className="text-2xl font-semibold tracking-tight">커뮤니티</h1>
         <div className="flex flex-col gap-3">
           {COMMUNITY_BOARDS.map((board) => (

@@ -10,7 +10,7 @@ import { reportPost, reportComment } from "@/app/community/reports/actions";
 import { COMMUNITY_IMAGE_BUCKET } from "@/lib/supabase/service";
 import { CommunityCommentForm } from "@/components/community-comment-form";
 import { ReportButton } from "@/components/report-button";
-import { CategoryNav, CommunityNav, SortNav } from "@/components/browse-nav";
+import { BrowseSidebar } from "@/components/browse-sidebar";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -87,20 +87,7 @@ export default async function CommunityPostPage({
 
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:items-start lg:gap-8">
-      <aside className="hidden lg:flex lg:flex-col lg:gap-6">
-        <div className="flex flex-col gap-1">
-          <span className="mb-1 text-xs font-medium text-muted-foreground">카테고리</span>
-          <CategoryNav />
-        </div>
-        <div className="flex flex-col gap-1 border-t pt-4">
-          <span className="mb-1 text-xs font-medium text-muted-foreground">커뮤니티</span>
-          <CommunityNav />
-        </div>
-        <div className="flex flex-col gap-1 border-t pt-4">
-          <span className="mb-1 text-xs font-medium text-muted-foreground">정렬</span>
-          <SortNav />
-        </div>
-      </aside>
+      <BrowseSidebar />
 
       <div className="mx-auto flex w-full max-w-lg flex-col gap-6 lg:mx-0">
         <div className="flex justify-end">

@@ -5,9 +5,14 @@ import { deleteComment } from "@/app/community/comments/actions";
 import { BOARD_LABEL, type CommunityBoard } from "@/lib/community-boards";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default async function AdminCommunityCommentsPage() {
+export default async function AdminCommunityCommentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -27,12 +32,20 @@ export default async function AdminCommunityCommentsPage() {
     redirect("/");
   }
 
-  const { data: comments } = await supabase
+  const { page: pageParam } = await searchParams;
+  const page = parsePage(pageParam);
+  const from = (page - 1) * PAGE_SIZE;
+
+  const { data } = await supabase
     .from("community_comments")
     .select("id, body, created_at, post_id, profiles(username), community_posts(title, board)")
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
-    .limit(200);
+    .range(from, from + PAGE_SIZE);
+
+  const rows = data ?? [];
+  const hasNext = rows.length > PAGE_SIZE;
+  const comments = rows.slice(0, PAGE_SIZE);
 
   return (
     <div className="flex flex-1 justify-center px-4 py-12">
@@ -40,7 +53,7 @@ export default async function AdminCommunityCommentsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">전체 커뮤니티 댓글</h1>
           <p className="text-sm text-muted-foreground">
-            최근 200개의 댓글을 표시합니다. 삭제하면 휴지통으로 이동합니다.
+            댓글을 최신순으로 표시합니다. 삭제하면 휴지통으로 이동합니다.
           </p>
         </div>
 
@@ -89,10 +102,18 @@ export default async function AdminCommunityCommentsPage() {
               </Card>
             );
           })}
-          {(!comments || comments.length === 0) && (
+          {comments.length === 0 && (
             <p className="text-sm text-muted-foreground">댓글이 없습니다.</p>
           )}
         </div>
+
+        <Pagination
+          page={page}
+          hasNext={hasNext}
+          makeHref={(p) =>
+            p > 1 ? `/admin/community/comments?page=${p}` : "/admin/community/comments"
+          }
+        />
       </div>
     </div>
   );

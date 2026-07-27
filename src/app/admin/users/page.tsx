@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 function escapeLike(value: string) {
@@ -23,7 +24,7 @@ function statusBadge(user: { banned_at: string | null; suspended_until: string |
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const supabase = await createClient();
   const {
@@ -44,21 +45,33 @@ export default async function AdminUsersPage({
     redirect("/");
   }
 
-  const { q } = await searchParams;
+  const { q, page: pageParam } = await searchParams;
   const query = q?.trim() ?? "";
+  const page = parsePage(pageParam);
+  const from = (page - 1) * PAGE_SIZE;
 
   let usersQuery = supabase
     .from("profiles")
     .select("id, username, is_admin, is_anonymous, suspended_until, banned_at, created_at")
     .eq("is_anonymous", false)
-    .order("created_at", { ascending: false })
-    .limit(200);
+    .order("created_at", { ascending: false });
 
   if (query) {
     usersQuery = usersQuery.ilike("username", `%${escapeLike(query)}%`);
   }
 
-  const { data: users } = await usersQuery;
+  const { data } = await usersQuery.range(from, from + PAGE_SIZE);
+  const rows = data ?? [];
+  const hasNext = rows.length > PAGE_SIZE;
+  const users = rows.slice(0, PAGE_SIZE);
+
+  const makeHref = (p: number) => {
+    const sp = new URLSearchParams();
+    if (query) sp.set("q", query);
+    if (p > 1) sp.set("page", String(p));
+    const qs = sp.toString();
+    return qs ? `/admin/users?${qs}` : "/admin/users";
+  };
 
   return (
     <div className="flex flex-1 justify-center px-4 py-12">
@@ -66,7 +79,7 @@ export default async function AdminUsersPage({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">사용자 관리</h1>
           <p className="text-sm text-muted-foreground">
-            최근 가입한 200명을 표시합니다. 닉네임으로 검색할 수 있어요.
+            가입한 사용자를 최신순으로 표시합니다. 닉네임으로 검색할 수 있어요.
           </p>
         </div>
 
@@ -100,10 +113,12 @@ export default async function AdminUsersPage({
               </Card>
             </Link>
           ))}
-          {(!users || users.length === 0) && (
+          {users.length === 0 && (
             <p className="text-sm text-muted-foreground">사용자가 없습니다.</p>
           )}
         </div>
+
+        <Pagination page={page} hasNext={hasNext} makeHref={makeHref} />
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ import {
 import { PRIVATE_IMAGE_BUCKET } from "@/lib/supabase/service";
 import { Button } from "@/components/ui/button";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -26,7 +27,11 @@ const REVIEWED_STATUS_LABEL: Record<string, string> = {
   hidden: "강제 비공개",
 };
 
-export default async function AdminPollsPage() {
+export default async function AdminPollsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -54,6 +59,12 @@ export default async function AdminPollsPage() {
 
   const pending = polls?.filter((p) => p.status === "pending") ?? [];
   const reviewed = polls?.filter((p) => p.status !== "pending") ?? [];
+
+  const { page: pageParam } = await searchParams;
+  const page = parsePage(pageParam);
+  const reviewedStart = (page - 1) * PAGE_SIZE;
+  const reviewedPage = reviewed.slice(reviewedStart, reviewedStart + PAGE_SIZE);
+  const reviewedHasNext = reviewed.length > reviewedStart + PAGE_SIZE;
 
   const pendingOptions = new Map<
     string,
@@ -166,7 +177,7 @@ export default async function AdminPollsPage() {
           <h2 className="text-sm font-medium text-muted-foreground">
             처리 완료 ({reviewed.length})
           </h2>
-          {reviewed.map((poll) => {
+          {reviewedPage.map((poll) => {
             const ownerUsername =
               (poll as unknown as { profiles: { username: string } | null })
                 .profiles?.username ?? "알 수 없음";
@@ -197,6 +208,12 @@ export default async function AdminPollsPage() {
               </Card>
             );
           })}
+
+          <Pagination
+            page={page}
+            hasNext={reviewedHasNext}
+            makeHref={(p) => (p > 1 ? `/admin/polls?page=${p}` : "/admin/polls")}
+          />
         </div>
       </div>
     </div>
