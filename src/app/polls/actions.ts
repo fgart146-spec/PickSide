@@ -9,7 +9,7 @@ import { suspensionMessage } from "@/lib/moderation";
 
 export type CreatePollState = { error: string | null };
 
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 function extensionFor(file: File): string {
   const byType: Record<string, string> = {
@@ -44,7 +44,7 @@ export async function createPoll(
 
   for (const image of [imageA, imageB]) {
     if (image instanceof File && image.size > MAX_IMAGE_BYTES) {
-      return { error: "이미지는 5MB 이하로 올려주세요." };
+      return { error: "이미지는 10MB 이하로 올려주세요." };
     }
   }
 

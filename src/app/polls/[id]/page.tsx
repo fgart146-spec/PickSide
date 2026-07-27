@@ -1,12 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
-import { ChevronRightIcon, CheckIcon } from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { castVote } from "@/app/polls/actions";
 import { deleteComment } from "@/app/comments/actions";
 import { reportPoll, reportComment } from "@/app/reports/actions";
 import { PRIVATE_IMAGE_BUCKET, PUBLIC_IMAGE_BUCKET } from "@/lib/supabase/service";
+import { VsPoll } from "@/components/vs-poll";
 import { CommentForm } from "@/components/comment-form";
 import { ReportButton } from "@/components/report-button";
 import { AdSlot } from "@/components/ad-slot";
@@ -101,6 +100,14 @@ export default async function PollPage({
     }
   }
 
+  if (options.length < 2) {
+    notFound();
+  }
+
+  const [optionA, optionB] = options;
+  const countFor = (optionId: string) =>
+    votes?.filter((v) => v.option_id === optionId).length ?? 0;
+
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:items-start lg:gap-8">
       <aside className="hidden lg:flex lg:flex-col lg:gap-6">
@@ -132,135 +139,59 @@ export default async function PollPage({
             }
           />
         </div>
-        <Card className="w-full">
-          <CardHeader className="flex-row items-start justify-between space-y-0">
-            <div>
-              <div className="mb-1 flex items-center gap-2">
-                <Badge variant="outline">{poll.category}</Badge>
-              </div>
-              <CardTitle className="text-2xl">{poll.question}</CardTitle>
-              <CardDescription>
-                만든 사람: {ownerUsername} · 조회수 {poll.view_count}
-                {hasVoted && ` · 총 ${totalVotes}표`}
-              </CardDescription>
-              {isPublished && !hasVoted && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  투표하면 결과를 확인할 수 있어요.
-                </p>
-              )}
-              {currentUserId && !isAnonymous && !isOwner && (
-                <div className="mt-2">
-                  <ReportButton action={reportPoll.bind(null, id)} />
-                </div>
+        <Card className="w-full shadow-sm">
+          <CardHeader>
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <Badge variant="outline">{poll.category}</Badge>
+              {!isPublished && (
+                <Badge variant={poll.status === "rejected" ? "destructive" : "secondary"}>
+                  {STATUS_LABEL[poll.status]}
+                </Badge>
               )}
             </div>
-            {!isPublished && (
-              <Badge variant={poll.status === "rejected" ? "destructive" : "secondary"}>
-                {STATUS_LABEL[poll.status]}
-              </Badge>
-            )}
+            <CardTitle className="text-2xl">{poll.question}</CardTitle>
+            <CardDescription>
+              만든 사람: {ownerUsername} · 조회수 {poll.view_count}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {options.map((option) => {
-              const count =
-                votes?.filter((v) => v.option_id === option.id).length ?? 0;
-              const pct = totalVotes === 0 ? 0 : Math.round((count / totalVotes) * 100);
-              const isMine = myVote === option.id;
-              const imageUrl = optionImages.get(option.id);
-
-              if (!isPublished) {
-                return (
-                  <div
-                    key={option.id}
-                    className="flex items-center gap-3 rounded-md border p-4 text-left text-muted-foreground"
-                  >
-                    {imageUrl && (
-                      <Image
-                        src={imageUrl}
-                        alt={option.label}
-                        width={48}
-                        height={48}
-                        className="rounded object-cover"
-                        unoptimized
-                      />
-                    )}
-                    {option.label}
-                  </div>
-                );
+          <CardContent>
+            <VsPoll
+              pollId={id}
+              category={poll.category}
+              optionA={{
+                id: optionA.id,
+                label: optionA.label,
+                imageUrl: optionImages.get(optionA.id) ?? null,
+              }}
+              optionB={{
+                id: optionB.id,
+                label: optionB.label,
+                imageUrl: optionImages.get(optionB.id) ?? null,
+              }}
+              votedOptionId={myVote ?? null}
+              counts={
+                hasVoted
+                  ? { [optionA.id]: countFor(optionA.id), [optionB.id]: countFor(optionB.id) }
+                  : null
               }
-
-              if (!hasVoted) {
-                // Blind voting: no counts/percentages shown until the
-                // viewer casts their own vote.
-                return (
-                  <form key={option.id} action={castVote.bind(null, id, option.id)}>
-                    <button
-                      type="submit"
-                      className="flex w-full items-center gap-3 rounded-md border p-4 text-left transition-colors hover:bg-accent"
-                    >
-                      {imageUrl && (
-                        <Image
-                          src={imageUrl}
-                          alt={option.label}
-                          width={48}
-                          height={48}
-                          className="rounded object-cover"
-                          unoptimized
-                        />
-                      )}
-                      <span className="font-medium">{option.label}</span>
-                    </button>
-                  </form>
-                );
+              totalVotes={totalVotes}
+              commentCount={comments?.length ?? 0}
+              canVote={isPublished}
+              reportSlot={
+                currentUserId && !isAnonymous && !isOwner ? (
+                  <ReportButton action={reportPoll.bind(null, id)} />
+                ) : undefined
               }
-
-              return (
-                <div
-                  key={option.id}
-                  className="relative w-full overflow-hidden rounded-md border p-4 text-left"
-                >
-                  <div
-                    className="absolute inset-y-0 left-0 bg-primary/10"
-                    style={{ width: `${pct}%` }}
-                  />
-                  <div className="relative flex items-center gap-3">
-                    {imageUrl && (
-                      <Image
-                        src={imageUrl}
-                        alt={option.label}
-                        width={48}
-                        height={48}
-                        className="rounded object-cover"
-                        unoptimized
-                      />
-                    )}
-                    <div className="flex flex-1 items-center justify-between">
-                      <span className="font-medium">
-                        {option.label}
-                        {isMine && (
-                          <span className="ml-2 inline-flex items-center gap-0.5 align-middle text-xs font-medium text-primary">
-                            <CheckIcon className="size-3.5" />
-                            내 선택
-                          </span>
-                        )}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        {count}표 ({pct}%)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            />
             {!isPublished && isOwner && (
-              <p className="pt-2 text-sm text-muted-foreground">
+              <p className="pt-4 text-sm text-muted-foreground">
                 {poll.status === "pending"
                   ? "관리자 승인 후 공개 목록에 노출되고 투표가 가능해집니다."
                   : "이 투표는 거절되어 공개되지 않습니다."}
               </p>
             )}
             {isPublished && !currentUserId && (
-              <p className="pt-2 text-sm text-muted-foreground">
+              <p className="pt-4 text-sm text-muted-foreground">
                 비회원으로도 투표할 수 있어요. 이 브라우저에 참여 기록이 저장됩니다.
               </p>
             )}
@@ -268,7 +199,7 @@ export default async function PollPage({
         </Card>
 
         {isPublished && (
-          <Card className="mt-6 w-full">
+          <Card id="comments" className="mt-6 w-full scroll-mt-20">
             <CardHeader>
               <CardTitle className="text-base">댓글 {comments?.length ?? 0}개</CardTitle>
             </CardHeader>
