@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { castVote } from "@/app/polls/actions";
+import { VoteCard } from "@/components/vote-card";
+import { PICK_PURPLE } from "@/lib/poll-visuals";
+import type { PollCategory } from "@/lib/categories";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -177,8 +179,11 @@ export function SpeedGame({
 
   if (!current) return null;
 
+  const [optionA, optionB] = current.options;
+  const category = current.category as PollCategory;
+
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md shadow-sm">
       <CardHeader>
         <div className="flex items-center justify-between">
           <Badge variant="outline">{current.category}</Badge>
@@ -199,30 +204,43 @@ export function SpeedGame({
           {index + 1} / {questions.length}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {current.options.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            disabled={pending}
-            onClick={() => pick(option.id)}
-            className="flex items-center gap-3 rounded-md border p-4 text-left transition-colors hover:bg-accent disabled:opacity-50"
+      <CardContent className="flex flex-col gap-4">
+        <div className="relative grid grid-cols-2 gap-3">
+          {optionA && (
+            <VoteCard
+              side="A"
+              category={category}
+              label={optionA.label}
+              imageUrl={optionA.imageUrl}
+              clickable={!pending}
+              onSelect={() => pick(optionA.id)}
+            />
+          )}
+          {optionB && (
+            <VoteCard
+              side="B"
+              category={category}
+              label={optionB.label}
+              imageUrl={optionB.imageUrl}
+              clickable={!pending}
+              onSelect={() => pick(optionB.id)}
+            />
+          )}
+          <div
+            className="pointer-events-none absolute left-1/2 top-1/2 z-10 flex size-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-sm font-extrabold shadow-lg ring-1 ring-black/5 sm:size-14 dark:bg-neutral-900 dark:ring-white/10"
+            style={{ color: PICK_PURPLE }}
           >
-            {option.imageUrl && (
-              <Image
-                src={option.imageUrl}
-                alt={option.label}
-                width={48}
-                height={48}
-                className="rounded object-cover"
-                unoptimized
-              />
-            )}
-            <span className="font-medium">{option.label}</span>
-          </button>
-        ))}
+            VS
+          </div>
+        </div>
         {timerSeconds === null && (
-          <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => advance(null)}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={pending}
+            onClick={() => advance(null)}
+          >
             건너뛰기
           </Button>
         )}
