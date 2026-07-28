@@ -89,7 +89,7 @@ export type CommunityHighlight = {
 };
 
 export type HomePortalData = {
-  stats: { totalPollCount: number; todayVoteCount: number };
+  stats: { totalPollCount: number; todayVisitorCount: number };
   visibleSectionKeys: HomeSectionKey[];
   featuredPoll: PollWidget | null;
   popularPolls: PollWidget[];
@@ -117,16 +117,15 @@ async function loadHomePortalData(): Promise<HomePortalData> {
   // cache. (unstable_cache forbids reading cookies/headers inside.)
   const supabase = createServiceClient();
 
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
   const nowIso = new Date().toISOString();
+  const today = nowIso.slice(0, 10);
 
   const published = () =>
     supabase.from("polls").select(WIDGET_SELECT).eq("status", "published").is("deleted_at", null);
 
   const [
     { count: totalPollCount },
-    { count: todayVoteCount },
+    { count: todayVisitorCount },
     { data: popular },
     { data: latest },
     { data: featuredPool },
@@ -141,9 +140,9 @@ async function loadHomePortalData(): Promise<HomePortalData> {
       .eq("status", "published")
       .is("deleted_at", null),
     supabase
-      .from("votes")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", todayStart.toISOString()),
+      .from("site_visits")
+      .select("visitor_id", { count: "exact", head: true })
+      .eq("visit_date", today),
     published().order("vote_count", { ascending: false }).limit(5),
     published().order("created_at", { ascending: false }).limit(5),
     published().eq("is_featured", true).order("created_at", { ascending: false }).limit(50),
@@ -237,7 +236,7 @@ async function loadHomePortalData(): Promise<HomePortalData> {
   return {
     stats: {
       totalPollCount: totalPollCount ?? 0,
-      todayVoteCount: todayVoteCount ?? 0,
+      todayVisitorCount: todayVisitorCount ?? 0,
     },
     visibleSectionKeys,
     featuredPoll: pickDailyFeatured(pool),

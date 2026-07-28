@@ -29,5 +29,36 @@ export async function updateSession(request: NextRequest) {
   // Refreshes the auth token if needed — do not remove.
   await supabase.auth.getUser();
 
+  await recordVisit(request, supabase, supabaseResponse);
+
   return supabaseResponse;
+}
+
+// Home page "오늘 접속자" counter. Most browsers never authenticate (even
+// anonymously — that only happens on guest vote), so visitors are tracked
+// by a random id in a long-lived first-party cookie instead of auth.uid().
+async function recordVisit(
+  request: NextRequest,
+  supabase: ReturnType<typeof createServerClient<Database>>,
+  response: NextResponse
+) {
+  let visitorId = request.cookies.get("pv_id")?.value;
+  if (!visitorId) {
+    visitorId = crypto.randomUUID();
+    response.cookies.set("pv_id", visitorId, {
+      maxAge: 60 * 60 * 24 * 400,
+      sameSite: "lax",
+    });
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  if (request.cookies.get("pv_date")?.value === today) {
+    return;
+  }
+
+  await supabase.from("site_visits").insert({ visitor_id: visitorId, visit_date: today });
+  response.cookies.set("pv_date", today, {
+    maxAge: 60 * 60 * 24 * 2,
+    sameSite: "lax",
+  });
 }

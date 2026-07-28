@@ -252,7 +252,7 @@ export default async function Home({
     stats: (
       <div className="flex flex-wrap items-center gap-4 rounded-lg border bg-muted/30 px-4 py-3 text-sm">
         <span>
-          오늘 참여자 <strong>{stats.todayVoteCount}</strong>명
+          오늘 접속자 <strong>{stats.todayVisitorCount}</strong>명
         </span>
         <span>
           전체 투표 <strong>{stats.totalPollCount}</strong>개

@@ -269,6 +269,24 @@ export interface Database {
           }
         ];
       };
+      site_visits: {
+        Row: {
+          visitor_id: string;
+          visit_date: string;
+          created_at: string;
+        };
+        Insert: {
+          visitor_id: string;
+          visit_date: string;
+          created_at?: string;
+        };
+        Update: {
+          visitor_id?: string;
+          visit_date?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       poll_bookmarks: {
         Row: {
           poll_id: string;

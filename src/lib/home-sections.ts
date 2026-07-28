@@ -15,7 +15,7 @@ export const HOME_SECTION_LABEL: Record<HomeSectionKey, string> = {
   popular: "실시간 인기 투표",
   latest: "최신 투표",
   random_cta: "랜덤 투표 시작하기",
-  stats: "오늘의 참여자 수 · 전체 투표 수",
+  stats: "오늘 접속자 수 · 전체 투표 수",
   notice_banner: "공지사항 및 이벤트 배너",
   community_highlights: "커뮤니티 인기글",
 };
