@@ -37,6 +37,12 @@ export async function suspendUser(userId: string, formData: FormData) {
   const reason = String(formData.get("reason") ?? "").trim() || null;
   const until = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("suspended_until, suspend_reason")
+    .eq("id", userId)
+    .single();
+
   const { error } = await supabase
     .from("profiles")
     .update({ suspended_until: until, suspend_reason: reason })
@@ -52,6 +58,8 @@ export async function suspendUser(userId: string, formData: FormData) {
     targetType: "profiles",
     targetId: userId,
     reason: reason ? `${days}일 정지 - ${reason}` : `${days}일 정지`,
+    before: existing,
+    after: { suspended_until: until, suspend_reason: reason },
   });
 
   revalidatePath(`/admin/users/${userId}`);
@@ -60,6 +68,12 @@ export async function suspendUser(userId: string, formData: FormData) {
 
 export async function unsuspendUser(userId: string) {
   const { supabase, adminId } = await requireAdmin();
+
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("suspended_until, suspend_reason")
+    .eq("id", userId)
+    .single();
 
   const { error } = await supabase
     .from("profiles")
@@ -75,6 +89,8 @@ export async function unsuspendUser(userId: string) {
     action: "user.unsuspend",
     targetType: "profiles",
     targetId: userId,
+    before: existing,
+    after: { suspended_until: null, suspend_reason: null },
   });
 
   revalidatePath(`/admin/users/${userId}`);
@@ -87,9 +103,16 @@ export async function banUser(userId: string, formData: FormData) {
 
   const reason = String(formData.get("reason") ?? "").trim() || null;
 
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("banned_at, suspend_reason")
+    .eq("id", userId)
+    .single();
+
+  const bannedAt = new Date().toISOString();
   const { error } = await supabase
     .from("profiles")
-    .update({ banned_at: new Date().toISOString(), suspend_reason: reason })
+    .update({ banned_at: bannedAt, suspend_reason: reason })
     .eq("id", userId);
 
   if (error) {
@@ -102,6 +125,8 @@ export async function banUser(userId: string, formData: FormData) {
     targetType: "profiles",
     targetId: userId,
     reason,
+    before: existing,
+    after: { banned_at: bannedAt, suspend_reason: reason },
   });
 
   revalidatePath(`/admin/users/${userId}`);
@@ -110,6 +135,12 @@ export async function banUser(userId: string, formData: FormData) {
 
 export async function unbanUser(userId: string) {
   const { supabase, adminId } = await requireAdmin();
+
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("banned_at, suspend_reason")
+    .eq("id", userId)
+    .single();
 
   const { error } = await supabase
     .from("profiles")
@@ -125,6 +156,8 @@ export async function unbanUser(userId: string) {
     action: "user.unban",
     targetType: "profiles",
     targetId: userId,
+    before: existing,
+    after: { banned_at: null, suspend_reason: null },
   });
 
   revalidatePath(`/admin/users/${userId}`);

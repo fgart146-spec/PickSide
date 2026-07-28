@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { SITE_CONTENT_BUCKET } from "@/lib/supabase/service";
 import { Badge } from "@/components/ui/badge";
@@ -52,12 +53,15 @@ export async function NoticeBanner() {
         const content = (
           <Card className="overflow-hidden transition-colors hover:bg-accent">
             {imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={imageUrl}
-                alt={banner.title}
-                className="aspect-[3/1] w-full object-cover"
-              />
+              <div className="relative aspect-[3/1] w-full overflow-hidden">
+                <Image
+                  src={imageUrl}
+                  alt={banner.title}
+                  fill
+                  sizes="(max-width: 640px) 100vw, 512px"
+                  className="object-cover"
+                />
+              </div>
             ) : (
               <CardHeader>
                 <div className="mb-1">

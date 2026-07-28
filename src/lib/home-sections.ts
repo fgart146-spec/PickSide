@@ -5,6 +5,7 @@ export const HOME_SECTIONS = [
   "random_cta",
   "stats",
   "notice_banner",
+  "community_highlights",
 ] as const;
 
 export type HomeSectionKey = (typeof HOME_SECTIONS)[number];
@@ -16,6 +17,7 @@ export const HOME_SECTION_LABEL: Record<HomeSectionKey, string> = {
   random_cta: "랜덤 투표 시작하기",
   stats: "오늘의 참여자 수 · 전체 투표 수",
   notice_banner: "공지사항 및 이벤트 배너",
+  community_highlights: "커뮤니티 인기글",
 };
 
 export function isHomeSectionKey(value: string): value is HomeSectionKey {

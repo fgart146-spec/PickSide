@@ -5,22 +5,11 @@ import { requireAdmin } from "@/app/admin/actions";
 import { SITE_CONTENT_BUCKET } from "@/lib/supabase/service";
 import { logAdminAction } from "@/lib/audit";
 import { isAdSlotKey } from "@/lib/ad-slots";
+import { toOptimizedWebp } from "@/lib/image-processing";
 
 export type AdSlotFormState = { error: string | null };
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-
-function extensionFor(file: File): string {
-  const byType: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "image/gif": "gif",
-  };
-  if (byType[file.type]) return byType[file.type];
-  const fromName = file.name.split(".").pop();
-  return fromName && fromName.length <= 5 ? fromName.toLowerCase() : "jpg";
-}
 
 export async function updateAdSlot(
   slotKey: string,
@@ -32,6 +21,12 @@ export async function updateAdSlot(
   }
 
   const { supabase, adminId } = await requireAdmin();
+
+  const { data: existing } = await supabase
+    .from("ad_slots")
+    .select("link_url, is_active, image_path")
+    .eq("slot_key", slotKey)
+    .single();
 
   const linkUrl = String(formData.get("link_url") ?? "").trim() || null;
   const isActive = formData.get("is_active") === "on";
@@ -47,10 +42,11 @@ export async function updateAdSlot(
   };
 
   if (image instanceof File && image.size > 0) {
-    const path = `ad-slots/${slotKey}-${Date.now()}.${extensionFor(image)}`;
+    const optimized = await toOptimizedWebp(await image.arrayBuffer(), { maxWidth: 1600 });
+    const path = `ad-slots/${slotKey}-${Date.now()}.webp`;
     const { error: uploadError } = await supabase.storage
       .from(SITE_CONTENT_BUCKET)
-      .upload(path, image, { contentType: image.type, upsert: true });
+      .upload(path, optimized, { contentType: "image/webp", upsert: true });
 
     if (uploadError) {
       return { error: `이미지 업로드 실패: ${uploadError.message}` };
@@ -68,6 +64,8 @@ export async function updateAdSlot(
     action: "ad_slot.update",
     targetType: "ad_slots",
     targetId: slotKey,
+    before: existing,
+    after: update,
   });
 
   revalidatePath("/admin/ad-slots");
@@ -81,6 +79,12 @@ export async function clearAdSlot(slotKey: string) {
   }
 
   const { supabase, adminId } = await requireAdmin();
+
+  const { data: existing } = await supabase
+    .from("ad_slots")
+    .select("link_url, is_active, image_path")
+    .eq("slot_key", slotKey)
+    .single();
 
   const { error } = await supabase
     .from("ad_slots")
@@ -96,6 +100,8 @@ export async function clearAdSlot(slotKey: string) {
     action: "ad_slot.clear",
     targetType: "ad_slots",
     targetId: slotKey,
+    before: existing,
+    after: { image_path: null, link_url: null, is_active: false },
   });
 
   revalidatePath("/admin/ad-slots");

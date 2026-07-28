@@ -8,6 +8,7 @@ import {
   PUBLIC_IMAGE_BUCKET,
 } from "@/lib/supabase/service";
 import { logAdminAction } from "@/lib/audit";
+import { notifyUser } from "@/lib/notifications";
 
 export async function requireAdmin() {
   const supabase = await createClient();
@@ -62,6 +63,12 @@ async function promoteImagesToPublic(pollId: string) {
 export async function approvePoll(pollId: string) {
   const { supabase, adminId } = await requireAdmin();
 
+  const { data: existing } = await supabase
+    .from("polls")
+    .select("status, question, owner_id")
+    .eq("id", pollId)
+    .single();
+
   await promoteImagesToPublic(pollId);
 
   const { error } = await supabase
@@ -78,7 +85,18 @@ export async function approvePoll(pollId: string) {
     action: "poll.approve",
     targetType: "poll",
     targetId: pollId,
+    before: { status: existing?.status },
+    after: { status: "published" },
   });
+
+  if (existing) {
+    await notifyUser({
+      userId: existing.owner_id,
+      type: "poll_approved",
+      message: `"${existing.question}" 투표가 승인되어 공개되었습니다.`,
+      link: `/polls/${pollId}`,
+    });
+  }
 
   // If this poll came from an AI draft, reflect the go-live on the draft.
   await createServiceClient()
@@ -96,6 +114,12 @@ export async function approvePoll(pollId: string) {
 export async function rejectPoll(pollId: string) {
   const { supabase, adminId } = await requireAdmin();
 
+  const { data: existing } = await supabase
+    .from("polls")
+    .select("status, question, owner_id")
+    .eq("id", pollId)
+    .single();
+
   const { error } = await supabase
     .from("polls")
     .update({ status: "rejected" })
@@ -110,7 +134,18 @@ export async function rejectPoll(pollId: string) {
     action: "poll.reject",
     targetType: "poll",
     targetId: pollId,
+    before: { status: existing?.status },
+    after: { status: "rejected" },
   });
+
+  if (existing) {
+    await notifyUser({
+      userId: existing.owner_id,
+      type: "poll_rejected",
+      message: `"${existing.question}" 투표가 거절되었습니다.`,
+      link: `/polls/${pollId}`,
+    });
+  }
 
   revalidatePath("/admin/polls");
   revalidatePath("/");
@@ -121,9 +156,10 @@ export async function rejectPoll(pollId: string) {
 export async function adminDeletePoll(pollId: string) {
   const { supabase, adminId } = await requireAdmin();
 
+  const deletedAt = new Date().toISOString();
   const { error } = await supabase
     .from("polls")
-    .update({ deleted_at: new Date().toISOString() })
+    .update({ deleted_at: deletedAt })
     .eq("id", pollId);
 
   if (error) {
@@ -135,6 +171,8 @@ export async function adminDeletePoll(pollId: string) {
     action: "poll.delete",
     targetType: "poll",
     targetId: pollId,
+    before: { deleted_at: null },
+    after: { deleted_at: deletedAt },
   });
 
   revalidatePath("/admin/polls");
@@ -151,6 +189,12 @@ async function setReportStatus(
   const { supabase, adminId } = await requireAdmin();
   const resolutionNote = String(formData.get("reason") ?? "").trim() || null;
 
+  const { data: existing } = await supabase
+    .from("reports")
+    .select("status, resolution_note")
+    .eq("id", reportId)
+    .single();
+
   const { error } = await supabase
     .from("reports")
     .update({ status, resolution_note: resolutionNote })
@@ -166,6 +210,8 @@ async function setReportStatus(
     targetType: "report",
     targetId: reportId,
     reason: resolutionNote,
+    before: existing,
+    after: { status, resolution_note: resolutionNote },
   });
 
   revalidatePath("/admin/reports");

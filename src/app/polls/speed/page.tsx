@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { PUBLIC_IMAGE_BUCKET } from "@/lib/supabase/service";
+import { flattenCategory, type CategoryEmbed } from "@/lib/home-data";
 import {
   pickDailySpeedGamePolls,
   buildSpeedGameQuestions,
@@ -8,13 +10,20 @@ import {
 } from "@/lib/speed-game";
 import { SpeedGame } from "@/components/speed-game";
 
+export const metadata: Metadata = {
+  title: "스피드 게임 | PickSide",
+  description: "5초 안에 골라라! PickSide 스피드 게임.",
+};
+
 export default async function SpeedGamePage() {
   const supabase = await createClient();
 
   const [{ data: polls }, { data: auth }] = await Promise.all([
     supabase
       .from("polls")
-      .select("id, question, category, poll_options(id, label, image_path, votes(count))")
+      .select(
+        "id, question, categories!polls_category_id_fkey(name, slug, icon, color), poll_options(id, label, image_path, votes(count))"
+      )
       .eq("status", "published")
       .is("deleted_at", null)
       .order("id"),
@@ -35,7 +44,14 @@ export default async function SpeedGamePage() {
     for (const v of myVotes ?? []) myVoteByPoll[v.poll_id] = v.option_id;
   }
 
-  const daily = pickDailySpeedGamePolls(polls as unknown as PollWithOptionCounts[], 10);
+  const pollsWithCategoryName = (
+    polls as unknown as ({ categories: CategoryEmbed | null } & Record<string, unknown>)[]
+  ).map((poll) => ({ ...poll, category: flattenCategory(poll).categoryName }));
+
+  const daily = pickDailySpeedGamePolls(
+    pollsWithCategoryName as unknown as PollWithOptionCounts[],
+    10
+  );
   const questions = buildSpeedGameQuestions(
     daily,
     myVoteByPoll,

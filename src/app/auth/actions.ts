@@ -62,9 +62,14 @@ export async function signUp(
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
   const username = String(formData.get("username") ?? "");
+  const agree = formData.get("agree") === "on";
 
   if (username.trim().length < 2) {
     return { error: "닉네임은 2자 이상이어야 합니다." };
+  }
+
+  if (!agree) {
+    return { error: "이용약관 및 개인정보처리방침에 동의해주세요." };
   }
 
   const supabase = await createClient();

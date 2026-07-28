@@ -316,6 +316,24 @@ export async function approveDraft(draftId: string) {
 
   const category = isPollCategory(draft.category) ? draft.category : "기타";
 
+  // AI drafts still only pick from the original 6 legacy category names
+  // (see lib/ai/workers.ts) — resolve the matching categories row so the
+  // poll gets a real category_id, falling back to 미분류 if that name was
+  // somehow renamed/deleted since.
+  const { data: categoryRow } = await service
+    .from("categories")
+    .select("id")
+    .eq("name", category)
+    .eq("is_deleted", false)
+    .single();
+  const { data: uncategorized } = await service
+    .from("categories")
+    .select("id")
+    .eq("slug", "uncategorized")
+    .single();
+  const categoryId = categoryRow?.id ?? uncategorized?.id;
+  if (!categoryId) throw new Error("기본 카테고리를 찾을 수 없습니다.");
+
   const { data: poll, error: pollErr } = await service
     .from("polls")
     .insert({
@@ -323,6 +341,7 @@ export async function approveDraft(draftId: string) {
       question: draft.title,
       status: "pending", // 관리자 승인 관리에서 최종 게시
       category,
+      category_id: categoryId,
       is_featured: draft.featured,
     })
     .select("id")

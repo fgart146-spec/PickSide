@@ -4,6 +4,7 @@ import { UserIcon, PlusIcon, LogOutIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/auth/actions";
 import { AdminNavMenu } from "@/components/admin-nav-menu";
+import { NotificationBell } from "@/components/notification-bell";
 import { Button } from "@/components/ui/button";
 
 export async function NavBar() {
@@ -36,6 +37,7 @@ export async function NavBar() {
           {user ? (
             <>
               {isAdmin && <AdminNavMenu />}
+              <NotificationBell userId={user.id} />
               <Button
                 variant="ghost"
                 size="sm"

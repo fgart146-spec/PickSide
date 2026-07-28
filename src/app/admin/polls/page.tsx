@@ -53,9 +53,10 @@ export default async function AdminPollsPage({
 
   const { data: polls } = await supabase
     .from("polls")
-    .select("id, question, status, created_at, profiles(username)")
+    .select("id, question, status, created_at, profiles!polls_owner_id_fkey(username)")
     .is("deleted_at", null)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(1000);
 
   const pending = polls?.filter((p) => p.status === "pending") ?? [];
   const reviewed = polls?.filter((p) => p.status !== "pending") ?? [];
@@ -71,26 +72,33 @@ export default async function AdminPollsPage({
     { id: string; label: string; imageUrl: string | null }[]
   >();
 
-  for (const poll of pending) {
-    const { data: options } = await supabase
+  if (pending.length > 0) {
+    const { data: allOptions } = await supabase
       .from("poll_options")
-      .select("id, label, image_path")
-      .eq("poll_id", poll.id)
+      .select("id, poll_id, label, image_path")
+      .in(
+        "poll_id",
+        pending.map((p) => p.id)
+      )
       .order("position");
 
     const withUrls = await Promise.all(
-      (options ?? []).map(async (option) => {
+      (allOptions ?? []).map(async (option) => {
         if (!option.image_path) {
-          return { id: option.id, label: option.label, imageUrl: null };
+          return { ...option, imageUrl: null };
         }
         const { data } = await supabase.storage
           .from(PRIVATE_IMAGE_BUCKET)
           .createSignedUrl(option.image_path, 60);
-        return { id: option.id, label: option.label, imageUrl: data?.signedUrl ?? null };
+        return { ...option, imageUrl: data?.signedUrl ?? null };
       })
     );
 
-    pendingOptions.set(poll.id, withUrls);
+    for (const option of withUrls) {
+      const list = pendingOptions.get(option.poll_id) ?? [];
+      list.push({ id: option.id, label: option.label, imageUrl: option.imageUrl });
+      pendingOptions.set(option.poll_id, list);
+    }
   }
 
   return (

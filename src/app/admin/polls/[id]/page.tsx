@@ -53,7 +53,7 @@ export default async function AdminPollDetailPage({
 
   const { data: poll } = await supabase
     .from("polls")
-    .select("id, question, status, category, is_pinned, is_featured, profiles(username)")
+    .select("id, question, status, category, is_pinned, is_featured, profiles!polls_owner_id_fkey(username)")
     .eq("id", id)
     .single();
 

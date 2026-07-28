@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const LINKS = [
+  { href: "/admin/categories", label: "투표 카테고리 관리", description: "추가/수정/숨김/삭제/순서" },
   { href: "/admin/polls", label: "전체 투표", description: "승인/반려/수정/삭제" },
   { href: "/admin/comments", label: "전체 투표 댓글", description: "댓글 조회 및 삭제" },
   {

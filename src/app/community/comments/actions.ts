@@ -4,12 +4,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logAdminAction } from "@/lib/audit";
 import { suspensionMessage } from "@/lib/moderation";
-import type { CommunityBoard } from "@/lib/community-boards";
+import { notifyUser } from "@/lib/notifications";
 
 export type CommunityCommentState = { error: string | null };
 
 export async function createComment(
-  board: CommunityBoard,
+  board: string,
   postId: string,
   _prevState: CommunityCommentState,
   formData: FormData
@@ -35,6 +35,18 @@ export async function createComment(
     return { error: "댓글을 작성하려면 회원가입이 필요합니다." };
   }
 
+  const { data: post } = await supabase
+    .from("community_posts")
+    .select("title, author_id, community_boards(allow_comments, is_deleted)")
+    .eq("id", postId)
+    .single();
+  const postBoard = (
+    post as unknown as { community_boards: { allow_comments: boolean; is_deleted: boolean } | null } | null
+  )?.community_boards;
+  if (!postBoard || postBoard.is_deleted || !postBoard.allow_comments) {
+    return { error: "이 게시판은 댓글 작성이 제한되어 있습니다." };
+  }
+
   const suspension = await suspensionMessage(supabase, user.id);
   if (suspension) {
     return { error: suspension };
@@ -48,12 +60,21 @@ export async function createComment(
     return { error: error.message };
   }
 
+  if (post && post.author_id !== user.id) {
+    await notifyUser({
+      userId: post.author_id,
+      type: "community_comment",
+      message: `"${post.title}"에 새 댓글이 달렸습니다.`,
+      link: `/community/${board}/${postId}#comments`,
+    });
+  }
+
   revalidatePath(`/community/${board}/${postId}`);
   return { error: null };
 }
 
 export async function deleteComment(
-  board: CommunityBoard,
+  board: string,
   postId: string,
   commentId: string
 ) {

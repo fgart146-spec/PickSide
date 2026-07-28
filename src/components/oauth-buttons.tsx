@@ -5,10 +5,13 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 
 export function OAuthButtons() {
-  const [pending, setPending] = useState<"google" | "kakao" | null>(null);
+  const [pending, setPending] = useState(false);
 
-  async function signInWith(provider: "google" | "kakao") {
-    setPending(provider);
+  // Kakao login is temporarily disabled: its "account_email" consent item
+  // requires business-app verification, so requesting it on this
+  // personal-dev app fails with KOE205. Re-enable once that's resolved.
+  async function signInWithGoogle() {
+    setPending(true);
     const supabase = createClient();
 
     // See the matching comment in src/app/auth/actions.ts: switching away
@@ -22,17 +25,11 @@ export function OAuthButtons() {
     }
 
     const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        // Kakao's "account_email" consent item requires business-app
-        // verification; requesting it on a personal-dev app fails with
-        // KOE205. Nickname alone is enough to create a profile.
-        ...(provider === "kakao" ? { scopes: "profile_nickname" } : {}),
-      },
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
     if (error) {
-      setPending(null);
+      setPending(false);
     }
   }
 
@@ -42,19 +39,13 @@ export function OAuthButtons() {
         type="button"
         variant="outline"
         className="w-full"
-        disabled={pending !== null}
-        onClick={() => signInWith("google")}
+        disabled={pending}
+        onClick={signInWithGoogle}
       >
-        {pending === "google" ? "이동 중..." : "Google로 계속하기"}
+        {pending ? "이동 중..." : "Google로 계속하기"}
       </Button>
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full"
-        disabled={pending !== null}
-        onClick={() => signInWith("kakao")}
-      >
-        {pending === "kakao" ? "이동 중..." : "Kakao로 계속하기"}
+      <Button type="button" variant="outline" className="w-full" disabled>
+        Kakao로 계속하기 (점검 중)
       </Button>
     </div>
   );

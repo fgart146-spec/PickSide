@@ -6,22 +6,20 @@ import { createClient } from "@/lib/supabase/server";
 import { PRIVATE_IMAGE_BUCKET } from "@/lib/supabase/service";
 import { isPollCategory } from "@/lib/categories";
 import { suspensionMessage } from "@/lib/moderation";
+import { toOptimizedWebp } from "@/lib/image-processing";
+
+// polls.category (the original 6-value Postgres enum) is kept NOT NULL for
+// backward compatibility with code that still reads it directly. When the
+// admin-picked category is one of those 6 names, mirror it there too;
+// otherwise fall back to '기타' — category_id is the actual source of truth
+// going forward.
+function legacyCategoryFor(name: string) {
+  return isPollCategory(name) ? name : "기타";
+}
 
 export type CreatePollState = { error: string | null };
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-
-function extensionFor(file: File): string {
-  const byType: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "image/gif": "gif",
-  };
-  if (byType[file.type]) return byType[file.type];
-  const fromName = file.name.split(".").pop();
-  return fromName && fromName.length <= 5 ? fromName.toLowerCase() : "jpg";
-}
 
 export async function createPoll(
   _prevState: CreatePollState,
@@ -30,7 +28,7 @@ export async function createPoll(
   const question = String(formData.get("question") ?? "").trim();
   const optionA = String(formData.get("optionA") ?? "").trim();
   const optionB = String(formData.get("optionB") ?? "").trim();
-  const categoryInput = String(formData.get("category") ?? "");
+  const categoryId = String(formData.get("category_id") ?? "").trim();
   const imageA = formData.get("imageA");
   const imageB = formData.get("imageB");
 
@@ -38,7 +36,7 @@ export async function createPoll(
     return { error: "질문과 두 선택지를 모두 입력해주세요." };
   }
 
-  if (!isPollCategory(categoryInput)) {
+  if (!categoryId) {
     return { error: "올바른 카테고리를 선택해주세요." };
   }
 
@@ -66,9 +64,29 @@ export async function createPoll(
     return { error: suspension };
   }
 
+  // Never trust the submitted category name — re-look-up the category and
+  // reject anything hidden/deleted, even if someone crafts a request with a
+  // stale or made-up id.
+  const { data: category } = await supabase
+    .from("categories")
+    .select("id, name")
+    .eq("id", categoryId)
+    .eq("is_visible", true)
+    .eq("is_deleted", false)
+    .single();
+
+  if (!category) {
+    return { error: "올바른 카테고리를 선택해주세요." };
+  }
+
   const { data: poll, error: pollError } = await supabase
     .from("polls")
-    .insert({ question, owner_id: user.id, category: categoryInput })
+    .insert({
+      question,
+      owner_id: user.id,
+      category_id: category.id,
+      category: legacyCategoryFor(category.name),
+    })
     .select("id")
     .single();
 
@@ -99,10 +117,11 @@ export async function createPoll(
     const option = options.find((o) => o.position === position);
     if (!option) continue;
 
-    const path = `${poll.id}/${option.id}.${extensionFor(image)}`;
+    const optimized = await toOptimizedWebp(await image.arrayBuffer(), { maxWidth: 1200 });
+    const path = `${poll.id}/${option.id}.webp`;
     const { error: uploadError } = await supabase.storage
       .from(PRIVATE_IMAGE_BUCKET)
-      .upload(path, image, { contentType: image.type, upsert: true });
+      .upload(path, optimized, { contentType: "image/webp", upsert: true });
 
     if (uploadError) {
       return { error: `이미지 업로드 실패: ${uploadError.message}` };
@@ -162,4 +181,39 @@ export async function castVote(pollId: string, optionId: string) {
 
   revalidatePath(`/polls/${pollId}`);
   revalidatePath("/");
+}
+
+export async function toggleBookmark(pollId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || user.is_anonymous) {
+    redirect("/login");
+  }
+
+  const { data: existing } = await supabase
+    .from("poll_bookmarks")
+    .select("poll_id")
+    .eq("poll_id", pollId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from("poll_bookmarks")
+      .delete()
+      .eq("poll_id", pollId)
+      .eq("user_id", user.id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from("poll_bookmarks")
+      .insert({ poll_id: pollId, user_id: user.id });
+    if (error) throw new Error(error.message);
+  }
+
+  revalidatePath(`/polls/${pollId}`);
+  revalidatePath("/me");
 }

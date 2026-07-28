@@ -4,14 +4,15 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { CheckIcon } from "lucide-react";
 import { visualFor, PICK_PURPLE } from "@/lib/poll-visuals";
-import type { PollCategory } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 
 export type VoteCardResult = { percent: number; count: number };
 
 type VoteCardProps = {
   label: string;
-  category: PollCategory;
+  category: string;
+  /** Admin-set category color, used only as a fallback for categories with no hand-tuned visual. */
+  categoryColor?: string | null;
   side: "A" | "B";
   imageUrl?: string | null;
   /** Interactive (published, not yet voted). */
@@ -31,6 +32,7 @@ const BOTTOM_SCRIM =
 export function VoteCard({
   label,
   category,
+  categoryColor,
   side,
   imageUrl,
   clickable = false,
@@ -39,7 +41,7 @@ export function VoteCard({
   winner = false,
   onSelect,
 }: VoteCardProps) {
-  const { emoji, gradient } = visualFor(category, side);
+  const { emoji, gradient } = visualFor(category, side, categoryColor);
   const showResult = result != null;
   const percent = result?.percent ?? null;
 
@@ -66,7 +68,6 @@ export function VoteCard({
             src={imageUrl}
             alt={label}
             fill
-            unoptimized
             sizes="(max-width: 768px) 46vw, 340px"
             className="object-cover"
           />

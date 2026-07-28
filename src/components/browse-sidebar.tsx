@@ -1,5 +1,4 @@
 import { CategoryNav, CommunityNav, SortNav, type SortOption } from "@/components/browse-nav";
-import type { PollCategory } from "@/lib/categories";
 
 /**
  * Left rail shared by the home, poll, and community pages so the category /
@@ -9,7 +8,7 @@ export function BrowseSidebar({
   activeCategory = null,
   activeSort = "latest",
 }: {
-  activeCategory?: PollCategory | null;
+  activeCategory?: string | null;
   activeSort?: SortOption;
 }) {
   return (

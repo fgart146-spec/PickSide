@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isCommunityBoard } from "@/lib/community-boards";
+import { getBoardBySlug } from "@/lib/community-boards-data";
 import { CommunityEditForm } from "@/components/community-edit-form";
 
 export default async function EditCommunityPostPage({
@@ -8,8 +8,9 @@ export default async function EditCommunityPostPage({
 }: {
   params: Promise<{ board: string; postId: string }>;
 }) {
-  const { board, postId } = await params;
-  if (!isCommunityBoard(board)) {
+  const { board: boardSlug, postId } = await params;
+  const board = await getBoardBySlug(boardSlug);
+  if (!board) {
     notFound();
   }
 
@@ -26,7 +27,7 @@ export default async function EditCommunityPostPage({
     .from("community_posts")
     .select("id, title, body, author_id")
     .eq("id", postId)
-    .eq("board", board)
+    .eq("board_id", board.id)
     .single();
 
   if (!post) {
@@ -41,13 +42,13 @@ export default async function EditCommunityPostPage({
       .single();
 
     if (!profile?.is_admin) {
-      redirect(`/community/${board}/${postId}`);
+      redirect(`/community/${boardSlug}/${postId}`);
     }
   }
 
   return (
     <CommunityEditForm
-      board={board}
+      board={boardSlug}
       postId={postId}
       initialTitle={post.title}
       initialBody={post.body}

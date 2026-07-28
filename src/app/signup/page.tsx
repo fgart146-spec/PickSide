@@ -59,6 +59,19 @@ export default function SignupPage() {
                 autoComplete="new-password"
               />
             </div>
+            <label className="flex items-start gap-2 text-sm text-muted-foreground">
+              <input type="checkbox" name="agree" required className="mt-0.5" />
+              <span>
+                <Link href="/terms" target="_blank" className="underline underline-offset-4">
+                  이용약관
+                </Link>
+                {" "}및{" "}
+                <Link href="/privacy" target="_blank" className="underline underline-offset-4">
+                  개인정보처리방침
+                </Link>
+                에 동의합니다.
+              </span>
+            </label>
             {state.error && (
               <p className="text-sm text-destructive">{state.error}</p>
             )}

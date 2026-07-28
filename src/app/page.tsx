@@ -1,16 +1,20 @@
 import { Fragment, type ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
-import { POLL_CATEGORIES, isPollCategory, type PollCategory } from "@/lib/categories";
-import { COMMUNITY_BOARDS, BOARD_LABEL } from "@/lib/community-boards";
+import { CommunityNav } from "@/components/browse-nav";
 import { type HomeSectionKey } from "@/lib/home-sections";
 import { escapeLike } from "@/lib/search";
 import {
   getHomePortalData,
   getPublishedPollPage,
+  getVisibleCategories,
+  flattenCategory,
   POLL_PAGE_SIZE,
   type PollListItem,
   type PollSort,
+  type CategoryEmbed,
+  type CategoryNavItem,
 } from "@/lib/home-data";
 import {
   Card,
@@ -43,18 +47,45 @@ const SORT_LABEL: Record<SortOption, string> = {
 };
 
 // Reads the denormalized vote_count/comment_count columns instead of
-// aggregating votes(count)/comments(count) per row.
+// aggregating votes(count)/comments(count) per row, and joins the
+// admin-managed categories table instead of the legacy `category` enum.
 const baseSelect =
-  "id, question, created_at, category, view_count, is_pinned, is_featured, vote_count, comment_count";
+  "id, question, created_at, view_count, is_pinned, is_featured, vote_count, comment_count, categories!polls_category_id_fkey(name, slug, icon, color)";
+
+type RawPollRow = {
+  id: string;
+  question: string;
+  created_at: string;
+  view_count: number;
+  is_pinned: boolean;
+  is_featured: boolean;
+  vote_count: number;
+  comment_count: number;
+} & { categories: CategoryEmbed | null };
+
+function toPollListItem(row: RawPollRow): PollListItem {
+  const { id, question, created_at, view_count, is_pinned, is_featured, vote_count, comment_count } =
+    row;
+  return {
+    id,
+    question,
+    created_at,
+    view_count,
+    is_pinned,
+    is_featured,
+    vote_count,
+    comment_count,
+    ...flattenCategory(row),
+  };
+}
 
 export default async function Home({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string; category?: string; sort?: string; page?: string }>;
 }) {
-  const { q, category: categoryParam, sort: sortParam, page: pageParam } = await searchParams;
+  const { q, category: categorySlugParam, sort: sortParam, page: pageParam } = await searchParams;
   const query = q?.trim() ?? "";
-  const category = categoryParam && isPollCategory(categoryParam) ? categoryParam : null;
   const sort: SortOption = (SORT_OPTIONS as readonly string[]).includes(sortParam ?? "")
     ? (sortParam as SortOption)
     : "latest";
@@ -64,6 +95,14 @@ export default async function Home({
   // Portal widgets (cached, cookie-independent) are fetched in parallel with
   // the main poll list so the two round-trips overlap instead of stacking.
   const portalPromise = getHomePortalData();
+  const allCategories = await getVisibleCategories();
+  const activeCategory: CategoryNavItem | null = categorySlugParam
+    ? (allCategories.find((c) => c.slug === categorySlugParam) ?? null)
+    : null;
+  // An unknown/hidden slug in the URL silently falls back to "no filter"
+  // (same graceful behavior the old enum-based check had) rather than
+  // erroring — the category nav below just won't show anything selected.
+  const category = activeCategory?.slug ?? null;
 
   let polls: PollListItem[] = [];
   let hasNext = false;
@@ -72,7 +111,7 @@ export default async function Home({
   if (!query) {
     // Default browse: one cached, database-paginated page of 10 rows.
     try {
-      const res = await getPublishedPollPage(category, sort, page);
+      const res = await getPublishedPollPage(activeCategory?.id ?? null, sort, page);
       polls = res.polls;
       hasNext = res.hasNext;
     } catch (e) {
@@ -91,7 +130,7 @@ export default async function Home({
       .eq("status", "published")
       .is("deleted_at", null)
       .ilike("question", pattern);
-    if (category) questionQuery = questionQuery.eq("category", category);
+    if (activeCategory) questionQuery = questionQuery.eq("category_id", activeCategory.id);
 
     const [byQuestion, matchingOptions] = await Promise.all([
       questionQuery.limit(200),
@@ -112,14 +151,17 @@ export default async function Home({
         .eq("status", "published")
         .is("deleted_at", null)
         .in("id", optionPollIds);
-      if (category) optionQuery = optionQuery.eq("category", category);
+      if (activeCategory) optionQuery = optionQuery.eq("category_id", activeCategory.id);
       const res = await optionQuery.limit(200);
-      byOption = res.data ?? [];
+      byOption = ((res.data ?? []) as unknown as RawPollRow[]).map(toPollListItem);
       error = error ?? res.error;
     }
 
     const merged = new Map<string, PollListItem>();
-    for (const poll of [...(byQuestion.data ?? []), ...byOption]) {
+    const byQuestionItems = ((byQuestion.data ?? []) as unknown as RawPollRow[]).map(
+      toPollListItem
+    );
+    for (const poll of [...byQuestionItems, ...byOption]) {
       merged.set(poll.id, poll);
     }
 
@@ -143,10 +185,11 @@ export default async function Home({
     latestPolls,
     banners: homeBanners,
     popups: popupItems,
+    communityHighlights,
   } = await portalPromise;
 
   const buildHref = (overrides: {
-    category?: PollCategory | null;
+    category?: string | null;
     sort?: SortOption;
     page?: number;
   }) => {
@@ -170,40 +213,24 @@ export default async function Home({
         className="lg:w-full lg:justify-start"
         render={<Link href={buildHref({ category: null })}>전체</Link>}
       />
-      {POLL_CATEGORIES.map((cat) => (
+      {allCategories.map((cat) => (
         <Button
-          key={cat}
+          key={cat.id}
           size="sm"
-          variant={category === cat ? "default" : "outline"}
+          variant={category === cat.slug ? "default" : "outline"}
           nativeButton={false}
           className="lg:w-full lg:justify-start"
-          render={<Link href={buildHref({ category: cat })}>{cat}</Link>}
+          render={
+            <Link href={buildHref({ category: cat.slug })}>
+              {cat.icon ? `${cat.icon} ${cat.name}` : cat.name}
+            </Link>
+          }
         />
       ))}
     </>
   );
 
-  const communityNav = (
-    <>
-      <Button
-        size="sm"
-        variant="ghost"
-        nativeButton={false}
-        className="lg:w-full lg:justify-start"
-        render={<Link href="/community">커뮤니티 홈</Link>}
-      />
-      {COMMUNITY_BOARDS.map((board) => (
-        <Button
-          key={board}
-          size="sm"
-          variant="ghost"
-          nativeButton={false}
-          className="lg:w-full lg:justify-start"
-          render={<Link href={`/community/${board}`}>{BOARD_LABEL[board]}</Link>}
-        />
-      ))}
-    </>
-  );
+  const communityNav = <CommunityNav />;
 
   const sortNav = (
     <>
@@ -264,7 +291,10 @@ export default async function Home({
           <CardHeader>
             <div className="mb-1 flex items-center gap-2">
               <Badge>오늘의 추천 밸런스 게임</Badge>
-              <Badge variant="outline">{featuredPoll.category}</Badge>
+              <Badge variant="outline">
+                {featuredPoll.categoryIcon ? `${featuredPoll.categoryIcon} ` : ""}
+                {featuredPoll.categoryName}
+              </Badge>
             </div>
             <CardTitle className="text-lg">{featuredPoll.question}</CardTitle>
             <CardDescription>
@@ -312,7 +342,8 @@ export default async function Home({
                 className="flex items-baseline gap-2 rounded px-1 py-1 text-sm hover:bg-accent"
               >
                 <Badge variant="outline" className="shrink-0">
-                  {poll.category}
+                  {poll.categoryIcon ? `${poll.categoryIcon} ` : ""}
+                  {poll.categoryName}
                 </Badge>
                 <span className="flex-1 truncate">{poll.question}</span>
               </Link>
@@ -321,6 +352,27 @@ export default async function Home({
         </ol>
       </section>
     ),
+    community_highlights:
+      communityHighlights.length > 0 ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold">커뮤니티 인기글</h2>
+          <ol className="flex flex-col gap-1">
+            {communityHighlights.map((post) => (
+              <li key={post.id}>
+                <Link
+                  href={`/community/${post.boardSlug}/${post.id}`}
+                  className="flex items-baseline gap-2 rounded px-1 py-1 text-sm hover:bg-accent"
+                >
+                  <Badge variant="outline" className="shrink-0">
+                    {post.boardName}
+                  </Badge>
+                  <span className="flex-1 truncate">{post.title}</span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null,
   };
 
   return (
@@ -335,12 +387,15 @@ export default async function Home({
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pt-6">
           {homeBanners.map((banner) => {
             const image = (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={banner.imageUrl}
-                alt={banner.title}
-                className="aspect-[3/1] w-full rounded-lg object-cover"
-              />
+              <div className="relative aspect-[3/1] w-full overflow-hidden rounded-lg">
+                <Image
+                  src={banner.imageUrl}
+                  alt={banner.title}
+                  fill
+                  sizes="(max-width: 1200px) 100vw, 1200px"
+                  className="object-cover"
+                />
+              </div>
             );
             return (
               <div key={banner.id}>
@@ -437,7 +492,7 @@ export default async function Home({
                 <CardDescription>
                   {query && `"${query}"`}
                   {query && category && " · "}
-                  {category && `${category} 카테고리`}에 대한 투표를 찾지 못했습니다.
+                  {activeCategory && `${activeCategory.name} 카테고리`}에 대한 투표를 찾지 못했습니다.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -464,7 +519,10 @@ export default async function Home({
                     <Card className="transition-colors hover:bg-accent">
                       <CardHeader>
                         <div className="mb-1 flex flex-wrap gap-1">
-                          <Badge variant="outline">{poll.category}</Badge>
+                          <Badge variant="outline">
+                            {poll.categoryIcon ? `${poll.categoryIcon} ` : ""}
+                            {poll.categoryName}
+                          </Badge>
                           {poll.is_pinned && (
                             <Badge>
                               <PinIcon />

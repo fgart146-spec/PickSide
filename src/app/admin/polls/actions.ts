@@ -9,20 +9,9 @@ import {
   PRIVATE_IMAGE_BUCKET,
   PUBLIC_IMAGE_BUCKET,
 } from "@/lib/supabase/service";
+import { toOptimizedWebp } from "@/lib/image-processing";
 
 export type AdminPollEditState = { error: string | null };
-
-function extensionFor(file: File): string {
-  const byType: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "image/gif": "gif",
-  };
-  if (byType[file.type]) return byType[file.type];
-  const fromName = file.name.split(".").pop();
-  return fromName && fromName.length <= 5 ? fromName.toLowerCase() : "jpg";
-}
 
 export async function adminUpdatePoll(
   pollId: string,
@@ -44,6 +33,17 @@ export async function adminUpdatePoll(
   if (!isPollCategory(category)) {
     return { error: "올바른 카테고리를 선택해주세요." };
   }
+
+  const { data: existingPoll } = await supabase
+    .from("polls")
+    .select("question, category")
+    .eq("id", pollId)
+    .single();
+  const { data: existingOptions } = await supabase
+    .from("poll_options")
+    .select("id, label")
+    .in("id", [optionAId, optionBId]);
+  const existingLabelById = new Map(existingOptions?.map((o) => [o.id, o.label]) ?? []);
 
   const { error: pollError } = await supabase
     .from("polls")
@@ -74,6 +74,13 @@ export async function adminUpdatePoll(
     action: "poll.edit",
     targetType: "poll",
     targetId: pollId,
+    before: {
+      question: existingPoll?.question,
+      category: existingPoll?.category,
+      optionALabel: existingLabelById.get(optionAId),
+      optionBLabel: existingLabelById.get(optionBId),
+    },
+    after: { question, category, optionALabel, optionBLabel },
   });
 
   revalidatePath(`/admin/polls/${pollId}`);
@@ -84,6 +91,12 @@ export async function adminUpdatePoll(
 
 export async function adminForceHidePoll(pollId: string) {
   const { supabase, adminId } = await requireAdmin();
+
+  const { data: existing } = await supabase
+    .from("polls")
+    .select("status")
+    .eq("id", pollId)
+    .single();
 
   const { error } = await supabase
     .from("polls")
@@ -96,6 +109,8 @@ export async function adminForceHidePoll(pollId: string) {
     action: "poll.force_hide",
     targetType: "poll",
     targetId: pollId,
+    before: { status: existing?.status },
+    after: { status: "hidden" },
   });
 
   revalidatePath(`/admin/polls/${pollId}`);
@@ -118,6 +133,8 @@ export async function adminTogglePin(pollId: string, next: boolean) {
     action: next ? "poll.pin" : "poll.unpin",
     targetType: "poll",
     targetId: pollId,
+    before: { is_pinned: !next },
+    after: { is_pinned: next },
   });
 
   revalidatePath(`/admin/polls/${pollId}`);
@@ -138,6 +155,8 @@ export async function adminToggleFeatured(pollId: string, next: boolean) {
     action: next ? "poll.feature" : "poll.unfeature",
     targetType: "poll",
     targetId: pollId,
+    before: { is_featured: !next },
+    after: { is_featured: next },
   });
 
   revalidatePath(`/admin/polls/${pollId}`);
@@ -183,10 +202,11 @@ export async function adminReplaceOptionImage(
     .eq("id", optionId)
     .single();
 
-  const path = `${pollId}/${optionId}.${extensionFor(image)}`;
+  const optimized = await toOptimizedWebp(await image.arrayBuffer(), { maxWidth: 1200 });
+  const path = `${pollId}/${optionId}.webp`;
   const { error: uploadError } = await service.storage
     .from(bucket)
-    .upload(path, image, { contentType: image.type, upsert: true });
+    .upload(path, optimized, { contentType: "image/webp", upsert: true });
   if (uploadError) {
     return { error: `이미지 업로드 실패: ${uploadError.message}` };
   }

@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logAdminAction } from "@/lib/audit";
 import { suspensionMessage } from "@/lib/moderation";
+import { notifyUser } from "@/lib/notifications";
 
 export type CommentState = { error: string | null };
 
@@ -46,6 +48,20 @@ export async function createComment(
     return { error: error.message };
   }
 
+  const { data: poll } = await supabase
+    .from("polls")
+    .select("question, owner_id")
+    .eq("id", pollId)
+    .single();
+  if (poll && poll.owner_id !== user.id) {
+    await notifyUser({
+      userId: poll.owner_id,
+      type: "poll_comment",
+      message: `"${poll.question}"에 새 댓글이 달렸습니다.`,
+      link: `/polls/${pollId}#comments`,
+    });
+  }
+
   revalidatePath(`/polls/${pollId}`);
   return { error: null };
 }
@@ -83,6 +99,40 @@ export async function deleteComment(pollId: string, commentId: string) {
         targetId: commentId,
       });
     }
+  }
+
+  revalidatePath(`/polls/${pollId}`);
+}
+
+export async function toggleCommentLike(pollId: string, commentId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || user.is_anonymous) {
+    redirect("/login");
+  }
+
+  const { data: existing } = await supabase
+    .from("comment_likes")
+    .select("comment_id")
+    .eq("comment_id", commentId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from("comment_likes")
+      .delete()
+      .eq("comment_id", commentId)
+      .eq("user_id", user.id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from("comment_likes")
+      .insert({ comment_id: commentId, user_id: user.id });
+    if (error) throw new Error(error.message);
   }
 
   revalidatePath(`/polls/${pollId}`);

@@ -46,7 +46,20 @@ export const POLL_VISUALS: Record<PollCategory, PollVisual> = {
 // The brand purple used for selection / winner accents across the VS UI.
 export const PICK_PURPLE = "#7c5cfc";
 
-export function visualFor(category: PollCategory, side: "A" | "B") {
-  const v = POLL_VISUALS[category];
+// Categories created by an admin beyond the original 6 have no hand-tuned
+// gradient here — fall back to a two-tone variant of their admin-set color
+// (or the brand purple, if none was set) instead of crashing.
+function fallbackVisual(color?: string | null): PollVisual {
+  const base = color && /^#[0-9a-fA-F]{6}$/.test(color) ? color : PICK_PURPLE;
+  return {
+    emoji: "✨",
+    gradientA: `linear-gradient(135deg, ${base} 0%, ${base}cc 100%)`,
+    gradientB: `linear-gradient(45deg, ${base}cc 0%, ${base} 100%)`,
+  };
+}
+
+export function visualFor(category: string, side: "A" | "B", color?: string | null) {
+  const known = (POLL_VISUALS as Record<string, PollVisual>)[category];
+  const v = known ?? fallbackVisual(color);
   return { emoji: v.emoji, gradient: side === "A" ? v.gradientA : v.gradientB };
 }

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { resolveReport, dismissReport } from "@/app/admin/actions";
 import { resolveCommunityReport, dismissCommunityReport } from "@/app/admin/community/actions";
+import { deleteReportedContentAndResolve } from "@/app/admin/reports/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
@@ -24,8 +25,13 @@ type PollReportRow = {
   poll_id: string | null;
   comment_id: string | null;
   profiles: { username: string } | null;
-  polls: { question: string } | null;
-  comments: { body: string; poll_id: string; polls: { question: string } | null } | null;
+  polls: { question: string; owner_id: string } | null;
+  comments: {
+    body: string;
+    poll_id: string;
+    author_id: string;
+    polls: { question: string } | null;
+  } | null;
 };
 
 type CommunityReportRow = {
@@ -38,17 +44,20 @@ type CommunityReportRow = {
   post_id: string | null;
   comment_id: string | null;
   profiles: { username: string } | null;
-  community_posts: { title: string; board: string } | null;
+  community_posts: { title: string; author_id: string; community_boards: { slug: string } | null } | null;
   community_comments: {
     body: string;
     post_id: string;
-    community_posts: { title: string; board: string } | null;
+    author_id: string;
+    community_posts: { title: string; community_boards: { slug: string } | null } | null;
   } | null;
 };
 
 type UnifiedReport = {
   id: string;
   source: "poll" | "community";
+  contentType: "poll" | "comment" | "post";
+  contentId: string;
   typeLabel: string;
   label: string;
   href: string;
@@ -58,6 +67,8 @@ type UnifiedReport = {
   status: "pending" | "resolved" | "dismissed";
   resolutionNote: string | null;
   createdAt: string;
+  authorId: string | null;
+  authorUsername: string;
 };
 
 export default async function AdminReportsPage({
@@ -88,15 +99,17 @@ export default async function AdminReportsPage({
     supabase
       .from("reports")
       .select(
-        "id, target_type, reason, status, resolution_note, created_at, poll_id, comment_id, profiles(username), polls(question), comments(body, poll_id, polls(question))"
+        "id, target_type, reason, status, resolution_note, created_at, poll_id, comment_id, profiles(username), polls(question, owner_id), comments(body, poll_id, author_id, polls(question))"
       )
-      .order("created_at", { ascending: true }),
+      .order("created_at", { ascending: true })
+      .limit(1000),
     supabase
       .from("community_reports")
       .select(
-        "id, target_type, reason, status, resolution_note, created_at, post_id, comment_id, profiles(username), community_posts(title, board), community_comments(body, post_id, community_posts(title, board))"
+        "id, target_type, reason, status, resolution_note, created_at, post_id, comment_id, profiles(username), community_posts(title, author_id, community_boards!community_posts_board_id_fkey(slug)), community_comments(body, post_id, author_id, community_posts(title, community_boards!community_posts_board_id_fkey(slug)))"
       )
-      .order("created_at", { ascending: true }),
+      .order("created_at", { ascending: true })
+      .limit(1000),
   ]);
 
   const pollRows = (pollReports ?? []) as unknown as PollReportRow[];
@@ -108,6 +121,8 @@ export default async function AdminReportsPage({
         return {
           id: r.id,
           source: "poll" as const,
+          contentType: "poll" as const,
+          contentId: r.poll_id ?? "",
           typeLabel: "투표",
           label: r.polls?.question ?? "삭제된 투표",
           href: `/polls/${r.poll_id}`,
@@ -117,11 +132,15 @@ export default async function AdminReportsPage({
           status: r.status,
           resolutionNote: r.resolution_note,
           createdAt: r.created_at,
+          authorId: r.polls?.owner_id ?? null,
+          authorUsername: "",
         };
       }
       return {
         id: r.id,
         source: "poll" as const,
+        contentType: "comment" as const,
+        contentId: r.comment_id ?? "",
         typeLabel: "투표 댓글",
         label: r.comments?.polls?.question ?? "삭제된 투표",
         href: `/polls/${r.comments?.poll_id ?? ""}`,
@@ -131,6 +150,8 @@ export default async function AdminReportsPage({
         status: r.status,
         resolutionNote: r.resolution_note,
         createdAt: r.created_at,
+        authorId: r.comments?.author_id ?? null,
+        authorUsername: "",
       };
     }),
     ...communityRows.map((r) => {
@@ -138,32 +159,52 @@ export default async function AdminReportsPage({
         return {
           id: r.id,
           source: "community" as const,
+          contentType: "post" as const,
+          contentId: r.post_id ?? "",
           typeLabel: "커뮤니티 게시글",
           label: r.community_posts?.title ?? "삭제된 게시글",
-          href: `/community/${r.community_posts?.board ?? ""}/${r.post_id}`,
+          href: `/community/${r.community_posts?.community_boards?.slug ?? ""}/${r.post_id}`,
           extra: null,
           reporter: r.profiles?.username ?? "알 수 없음",
           reason: r.reason,
           status: r.status,
           resolutionNote: r.resolution_note,
           createdAt: r.created_at,
+          authorId: r.community_posts?.author_id ?? null,
+          authorUsername: "",
         };
       }
       return {
         id: r.id,
         source: "community" as const,
+        contentType: "comment" as const,
+        contentId: r.comment_id ?? "",
         typeLabel: "커뮤니티 댓글",
         label: r.community_comments?.community_posts?.title ?? "삭제된 게시글",
-        href: `/community/${r.community_comments?.community_posts?.board ?? ""}/${r.community_comments?.post_id ?? ""}`,
+        href: `/community/${r.community_comments?.community_posts?.community_boards?.slug ?? ""}/${r.community_comments?.post_id ?? ""}`,
         extra: r.community_comments?.body ?? "삭제된 댓글",
         reporter: r.profiles?.username ?? "알 수 없음",
         reason: r.reason,
         status: r.status,
         resolutionNote: r.resolution_note,
         createdAt: r.created_at,
+        authorId: r.community_comments?.author_id ?? null,
+        authorUsername: "",
       };
     }),
   ].sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+
+  const authorIds = [...new Set(unified.map((r) => r.authorId).filter((id): id is string => !!id))];
+  if (authorIds.length > 0) {
+    const { data: authors } = await supabase
+      .from("profiles")
+      .select("id, username")
+      .in("id", authorIds);
+    const usernameById = new Map(authors?.map((a) => [a.id, a.username]) ?? []);
+    for (const report of unified) {
+      report.authorUsername = report.authorId ? (usernameById.get(report.authorId) ?? "알 수 없음") : "알 수 없음";
+    }
+  }
 
   const pending = unified.filter((r) => r.status === "pending");
   const handled = unified.filter((r) => r.status !== "pending");
@@ -210,8 +251,19 @@ export default async function AdminReportsPage({
                 <CardDescription>
                   신고자: {report.reporter} · 사유: {report.reason}
                 </CardDescription>
+                {report.authorId && (
+                  <CardDescription>
+                    작성자: {report.authorUsername}{" "}
+                    <Link
+                      href={`/admin/users/${report.authorId}`}
+                      className="underline underline-offset-4"
+                    >
+                      작성자 관리 →
+                    </Link>
+                  </CardDescription>
+                )}
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex flex-col gap-3">
                 <form
                   action={
                     report.source === "poll"
@@ -245,6 +297,21 @@ export default async function AdminReportsPage({
                     </Button>
                   </div>
                 </form>
+                {report.contentId && (
+                  <form
+                    action={deleteReportedContentAndResolve.bind(
+                      null,
+                      report.source,
+                      report.contentType,
+                      report.id,
+                      report.contentId
+                    )}
+                  >
+                    <Button type="submit" size="sm" variant="destructive">
+                      게시물 삭제하고 처리 완료
+                    </Button>
+                  </form>
+                )}
               </CardContent>
             </Card>
           ))}

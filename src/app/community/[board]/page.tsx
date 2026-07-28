@@ -1,14 +1,16 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { PlusIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { isCommunityBoard, BOARD_LABEL, type CommunityBoard } from "@/lib/community-boards";
+import { getBoardBySlug } from "@/lib/community-boards-data";
 import { BrowseSidebar } from "@/components/browse-sidebar";
 import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 import { escapeLike } from "@/lib/search";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
 const SORT_OPTIONS = ["latest", "popular", "comments"] as const;
 type SortOption = (typeof SORT_OPTIONS)[number];
@@ -23,6 +25,7 @@ type PostListItem = {
   title: string;
   view_count: number;
   created_at: string;
+  is_pinned: boolean;
   profiles: { username: string } | null;
   community_post_likes: { count: number }[];
   community_comments: { count: number }[];
@@ -32,6 +35,21 @@ function countOf(rows: { count: number }[] | null | undefined) {
   return rows?.[0]?.count ?? 0;
 }
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ board: string }>;
+}): Promise<Metadata> {
+  const { board: boardSlug } = await params;
+  const board = await getBoardBySlug(boardSlug);
+  if (!board) {
+    return { title: "PickSide" };
+  }
+  const title = `${board.name} | PickSide 커뮤니티`;
+  const description = board.description ?? `PickSide ${board.name}`;
+  return { title, description, openGraph: { title, description } };
+}
+
 export default async function BoardPage({
   params,
   searchParams,
@@ -39,9 +57,36 @@ export default async function BoardPage({
   params: Promise<{ board: string }>;
   searchParams: Promise<{ q?: string; sort?: string; page?: string }>;
 }) {
-  const { board } = await params;
-  if (!isCommunityBoard(board)) {
+  const { board: boardSlug } = await params;
+  const board = await getBoardBySlug(boardSlug);
+  if (!board) {
     notFound();
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let isAdmin = false;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .single();
+    isAdmin = profile?.is_admin ?? false;
+  }
+
+  // Hidden boards (e.g. the archive) are admin-only, even by direct URL.
+  if (!board.is_visible && !isAdmin) {
+    notFound();
+  }
+  // A board that opted out of guest viewing requires any signed-in session
+  // (real or anonymous guest-vote-style) — enforced here AND at the RLS
+  // level (see migration 20260727000010), not just by hiding a button.
+  if (!board.allow_guest_view && !user) {
+    redirect(`/login?next=/community/${boardSlug}`);
   }
 
   const { q, sort: sortParam, page: pageParam } = await searchParams;
@@ -51,9 +96,8 @@ export default async function BoardPage({
     : "latest";
   const page = parsePage(pageParam);
 
-  const supabase = await createClient();
   const baseSelect =
-    "id, title, view_count, created_at, profiles!community_posts_author_id_fkey(username), community_post_likes(count), community_comments(count)";
+    "id, title, view_count, created_at, is_pinned, profiles!community_posts_author_id_fkey(username), community_post_likes(count), community_comments(count)";
 
   let allPosts: PostListItem[] = [];
   let error: { message: string } | null = null;
@@ -62,7 +106,7 @@ export default async function BoardPage({
     const res = await supabase
       .from("community_posts")
       .select(baseSelect)
-      .eq("board", board)
+      .eq("board_id", board.id)
       .is("deleted_at", null)
       .limit(200);
     allPosts = (res.data as unknown as PostListItem[]) ?? [];
@@ -73,14 +117,14 @@ export default async function BoardPage({
       supabase
         .from("community_posts")
         .select(baseSelect)
-        .eq("board", board)
+        .eq("board_id", board.id)
         .is("deleted_at", null)
         .ilike("title", pattern)
         .limit(200),
       supabase
         .from("community_posts")
         .select(baseSelect)
-        .eq("board", board)
+        .eq("board_id", board.id)
         .is("deleted_at", null)
         .ilike("body", pattern)
         .limit(200),
@@ -99,6 +143,7 @@ export default async function BoardPage({
   }
 
   const sorted = allPosts.slice().sort((a, b) => {
+    if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
     if (sort === "popular")
       return countOf(b.community_post_likes) - countOf(a.community_post_likes);
     if (sort === "comments")
@@ -117,8 +162,10 @@ export default async function BoardPage({
     if (nextSort !== "latest") params2.set("sort", nextSort);
     if (overrides.page && overrides.page > 1) params2.set("page", String(overrides.page));
     const qs = params2.toString();
-    return qs ? `/community/${board}?${qs}` : `/community/${board}`;
+    return qs ? `/community/${boardSlug}?${qs}` : `/community/${boardSlug}`;
   };
+
+  const canWrite = board.allow_posts && (!board.admin_only_posting || isAdmin);
 
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:items-start lg:gap-8">
@@ -126,21 +173,27 @@ export default async function BoardPage({
 
       <div className="mx-auto flex w-full max-w-lg flex-col gap-6 lg:mx-0">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {BOARD_LABEL[board as CommunityBoard]}
+          <h1 className="flex items-center gap-1.5 text-2xl font-semibold tracking-tight">
+            {board.icon && <span>{board.icon}</span>}
+            {board.name}
           </h1>
-          <Button
-            size="sm"
-            nativeButton={false}
-            className="self-start sm:self-auto"
-            render={
-              <Link href={`/community/${board}/new`}>
-                <PlusIcon />
-                글쓰기
-              </Link>
-            }
-          />
+          {canWrite && (
+            <Button
+              size="sm"
+              nativeButton={false}
+              className="self-start sm:self-auto"
+              render={
+                <Link href={`/community/${boardSlug}/new`}>
+                  <PlusIcon />
+                  글쓰기
+                </Link>
+              }
+            />
+          )}
         </div>
+        {!board.allow_posts && (
+          <p className="text-sm text-muted-foreground">현재 이 게시판은 글쓰기가 제한되어 있어요.</p>
+        )}
 
         <form method="get" className="flex gap-2">
           {sort !== "latest" && <input type="hidden" name="sort" value={sort} />}
@@ -194,10 +247,13 @@ export default async function BoardPage({
 
         <div className="flex flex-col gap-3">
           {posts.map((post) => (
-            <Link key={post.id} href={`/community/${board}/${post.id}`}>
+            <Link key={post.id} href={`/community/${boardSlug}/${post.id}`}>
               <Card className="transition-colors hover:bg-accent">
                 <CardHeader>
-                  <CardTitle className="text-base">{post.title}</CardTitle>
+                  <CardTitle className="flex items-center gap-1.5 text-base">
+                    {post.is_pinned && <Badge>공지</Badge>}
+                    {post.title}
+                  </CardTitle>
                   <CardDescription>
                     {post.profiles?.username ?? "알 수 없음"} · 좋아요{" "}
                     {countOf(post.community_post_likes)} · 댓글{" "}

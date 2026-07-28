@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { CheckIcon, XIcon, RotateCcwIcon, Share2Icon } from "lucide-react";
+import { toast } from "sonner";
 import { castVote } from "@/app/polls/actions";
 import { VoteCard } from "@/components/vote-card";
 import { PICK_PURPLE } from "@/lib/poll-visuals";
@@ -103,6 +105,29 @@ export function SpeedGame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
 
+  function restart() {
+    setIndex(0);
+    setAnswers([]);
+    setPending(false);
+  }
+
+  async function shareResult(agreeCount: number, answeredCount: number) {
+    const text = `PickSide ${resultTitle}: ${answeredCount}문제 중 다수 의견과 ${agreeCount}개 일치!`;
+    const url = window.location.href;
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ text, url });
+      } catch {
+        /* share sheet dismissed — ignore */
+      }
+      return;
+    }
+
+    await navigator.clipboard.writeText(`${text} ${url}`);
+    toast.success("결과를 복사했어요.");
+  }
+
   async function pick(optionId: string) {
     if (pending || !current) return;
     setPending(true);
@@ -131,46 +156,77 @@ export function SpeedGame({
 
   if (finished) {
     const answeredCount = answers.filter((a) => a.pickedOptionId).length;
-    const agreeCount = answers.filter((a) => {
-      if (!a.pickedOptionId || isTie(a.options)) return false;
-      return topOption(a.options)?.id === a.pickedOptionId;
-    }).length;
+    const comparable = answers.filter((a) => a.pickedOptionId && !isTie(a.options));
+    const agreeCount = comparable.filter((a) => topOption(a.options)?.id === a.pickedOptionId).length;
+    const agreeRate = comparable.length > 0 ? Math.round((agreeCount / comparable.length) * 100) : 0;
 
     return (
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>{resultTitle}</CardTitle>
           <CardDescription>
-            {questions.length}문제 중 {answeredCount}개 참여 · 다수 의견과 {agreeCount}개 일치
+            {questions.length}문제 중 {answeredCount}개 참여
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {answers.map((answer, i) => {
-            const top = topOption(answer.options);
-            const tie = isTie(answer.options);
-            const picked = answer.options.find((o) => o.id === answer.pickedOptionId);
-            return (
-              <div key={answer.pollId} className="rounded-md border p-3 text-sm">
-                <p className="font-medium">
-                  {i + 1}. {answer.question}
-                </p>
-                <p className="mt-1 text-muted-foreground">
-                  내 선택: {picked ? picked.label : "스킵"}
-                  {picked && tie && " · 동률"}
-                  {picked && !tie && top && (
-                    <span
-                      className={
-                        answer.pickedOptionId === top.id ? "text-primary" : "text-muted-foreground"
-                      }
-                    >
-                      {" · "}
-                      {answer.pickedOptionId === top.id ? "다수 의견과 일치" : "다수 의견과 다름"}
-                    </span>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col items-center gap-2 rounded-xl bg-muted/50 py-6">
+            <span className="text-5xl font-extrabold" style={{ color: PICK_PURPLE }}>
+              {agreeRate}%
+            </span>
+            <span className="text-sm text-muted-foreground">
+              다수 의견과 {agreeCount}/{comparable.length}개 일치
+            </span>
+            <div className="mt-1 h-2 w-40 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full transition-[width] duration-500 ease-out"
+                style={{ width: `${agreeRate}%`, backgroundColor: PICK_PURPLE }}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {answers.map((answer, i) => {
+              const top = topOption(answer.options);
+              const tie = isTie(answer.options);
+              const picked = answer.options.find((o) => o.id === answer.pickedOptionId);
+              const matched = picked && !tie && top?.id === answer.pickedOptionId;
+              const mismatched = picked && !tie && top && top.id !== answer.pickedOptionId;
+
+              return (
+                <div key={answer.pollId} className="flex items-start gap-2 rounded-md border p-3 text-sm">
+                  {matched && <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />}
+                  {mismatched && (
+                    <XIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                   )}
-                </p>
-              </div>
-            );
-          })}
+                  <div>
+                    <p className="font-medium">
+                      {i + 1}. {answer.question}
+                    </p>
+                    <p className="mt-1 text-muted-foreground">
+                      내 선택: {picked ? picked.label : "스킵"}
+                      {picked && tie && " · 동률"}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => shareResult(agreeCount, comparable.length)}
+            >
+              <Share2Icon />
+              결과 공유
+            </Button>
+            <Button type="button" variant="outline" className="flex-1" onClick={restart}>
+              <RotateCcwIcon />
+              다시 하기
+            </Button>
+          </div>
           <Button nativeButton={false} render={<Link href="/">홈으로</Link>} />
         </CardContent>
       </Card>

@@ -5,22 +5,11 @@ import { requireAdmin } from "@/app/admin/actions";
 import { SITE_CONTENT_BUCKET } from "@/lib/supabase/service";
 import { logAdminAction } from "@/lib/audit";
 import { kstDatetimeLocalToUtcIso } from "@/lib/datetime";
+import { toOptimizedWebp } from "@/lib/image-processing";
 
 export type PopupFormState = { error: string | null };
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-
-function extensionFor(file: File): string {
-  const byType: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "image/gif": "gif",
-  };
-  if (byType[file.type]) return byType[file.type];
-  const fromName = file.name.split(".").pop();
-  return fromName && fromName.length <= 5 ? fromName.toLowerCase() : "jpg";
-}
 
 export async function createPopup(
   _prevState: PopupFormState,
@@ -59,10 +48,11 @@ export async function createPopup(
   }
 
   if (image instanceof File && image.size > 0) {
-    const path = `popups/${popup.id}.${extensionFor(image)}`;
+    const optimized = await toOptimizedWebp(await image.arrayBuffer(), { maxWidth: 1200 });
+    const path = `popups/${popup.id}.webp`;
     const { error: uploadError } = await supabase.storage
       .from(SITE_CONTENT_BUCKET)
-      .upload(path, image, { contentType: image.type, upsert: true });
+      .upload(path, optimized, { contentType: "image/webp", upsert: true });
 
     if (uploadError) {
       return { error: `이미지 업로드 실패: ${uploadError.message}` };
@@ -105,6 +95,8 @@ export async function togglePopupActive(id: string, isActive: boolean) {
     action: isActive ? "popup.activate" : "popup.deactivate",
     targetType: "popups",
     targetId: id,
+    before: { is_active: !isActive },
+    after: { is_active: isActive },
   });
 
   revalidatePath("/admin/popups");

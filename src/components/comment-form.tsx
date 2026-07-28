@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { createComment, type CommentState } from "@/app/comments/actions";
 import { Button } from "@/components/ui/button";
 
@@ -11,15 +11,14 @@ export function CommentForm({ pollId }: { pollId: string }) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
+  useEffect(() => {
+    if (!pending && !state.error) {
+      formRef.current?.reset();
+    }
+  }, [state, pending]);
+
   return (
-    <form
-      ref={formRef}
-      action={async (formData: FormData) => {
-        await formAction(formData);
-        formRef.current?.reset();
-      }}
-      className="flex flex-col gap-2"
-    >
+    <form ref={formRef} action={formAction} className="flex flex-col gap-2">
       <textarea
         name="body"
         placeholder="댓글을 남겨보세요"

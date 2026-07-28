@@ -49,6 +49,8 @@ export async function toggleNoticeActive(id: string, isActive: boolean) {
     action: isActive ? "notice.activate" : "notice.deactivate",
     targetType: "notices",
     targetId: id,
+    before: { is_active: !isActive },
+    after: { is_active: isActive },
   });
 
   revalidatePath("/admin/notices");

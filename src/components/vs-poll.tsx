@@ -1,18 +1,19 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
-import { UsersIcon, MessageCircleIcon, Share2Icon } from "lucide-react";
+import { UsersIcon, MessageCircleIcon } from "lucide-react";
 import { toast } from "sonner";
 import { castVote } from "@/app/polls/actions";
 import { VoteCard } from "@/components/vote-card";
+import { ShareMenu } from "@/components/share-menu";
 import { PICK_PURPLE } from "@/lib/poll-visuals";
-import type { PollCategory } from "@/lib/categories";
 
 export type VsOption = { id: string; label: string; imageUrl?: string | null };
 
 type VsPollProps = {
   pollId: string;
-  category: PollCategory;
+  question: string;
+  category: string;
   optionA: VsOption;
   optionB: VsOption;
   /** The viewer's already-cast option, or null. */
@@ -24,10 +25,12 @@ type VsPollProps = {
   /** Published and open for voting. */
   canVote: boolean;
   reportSlot?: ReactNode;
+  bookmarkSlot?: ReactNode;
 };
 
 export function VsPoll({
   pollId,
+  question,
   category,
   optionA,
   optionB,
@@ -37,6 +40,7 @@ export function VsPoll({
   commentCount,
   canVote,
   reportSlot,
+  bookmarkSlot,
 }: VsPollProps) {
   const [pending, startTransition] = useTransition();
   const [optimisticId, setOptimisticId] = useState<string | null>(null);
@@ -67,20 +71,6 @@ export function VsPoll({
         toast.error(e instanceof Error ? e.message : "투표에 실패했습니다.");
       }
     });
-  }
-
-  async function handleShare() {
-    const url = typeof window !== "undefined" ? window.location.href : "";
-    try {
-      if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({ url });
-      } else {
-        await navigator.clipboard.writeText(url);
-        toast.success("링크를 복사했어요.");
-      }
-    } catch {
-      /* share sheet dismissed — ignore */
-    }
   }
 
   return (
@@ -135,14 +125,8 @@ export function VsPoll({
           {commentCount}
         </a>
         <div className="ml-auto flex items-center gap-1">
-          <button
-            type="button"
-            onClick={handleShare}
-            aria-label="공유하기"
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <Share2Icon className="size-4" />
-          </button>
+          {bookmarkSlot}
+          <ShareMenu title={question} />
           {reportSlot}
         </div>
       </div>

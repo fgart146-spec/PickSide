@@ -4,28 +4,25 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { COMMUNITY_IMAGE_BUCKET } from "@/lib/supabase/service";
-import { isCommunityBoard, type CommunityBoard } from "@/lib/community-boards";
+import { isCommunityBoard } from "@/lib/community-boards";
+import { getBoardBySlug } from "@/lib/community-boards-data";
 import { logAdminAction } from "@/lib/audit";
 import { suspensionMessage } from "@/lib/moderation";
+import { toOptimizedWebp } from "@/lib/image-processing";
 
 export type PostFormState = { error: string | null };
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
-function extensionFor(file: File): string {
-  const byType: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "image/gif": "gif",
-  };
-  if (byType[file.type]) return byType[file.type];
-  const fromName = file.name.split(".").pop();
-  return fromName && fromName.length <= 5 ? fromName.toLowerCase() : "jpg";
+// GIFs are left untouched — re-encoding to WebP without extra handling
+// collapses animation to a single static frame, which would break the
+// meme/reaction-image use case this board's image upload exists for.
+function isAnimatedGif(file: File): boolean {
+  return file.type === "image/gif";
 }
 
 export async function createPost(
-  board: CommunityBoard,
+  boardSlug: string,
   _prevState: PostFormState,
   formData: FormData
 ): Promise<PostFormState> {
@@ -33,7 +30,8 @@ export async function createPost(
   const body = String(formData.get("body") ?? "").trim();
   const image = formData.get("image");
 
-  if (!isCommunityBoard(board)) {
+  const board = await getBoardBySlug(boardSlug);
+  if (!board) {
     return { error: "잘못된 게시판입니다." };
   }
   if (!title || !body) {
@@ -41,6 +39,9 @@ export async function createPost(
   }
   if (image instanceof File && image.size > MAX_IMAGE_BYTES) {
     return { error: "이미지는 5MB 이하로 올려주세요." };
+  }
+  if (image instanceof File && image.size > 0 && !board.allow_images) {
+    return { error: "이 게시판은 이미지 첨부를 허용하지 않습니다." };
   }
 
   const supabase = await createClient();
@@ -51,8 +52,23 @@ export async function createPost(
   if (!user) {
     return { error: "로그인이 필요합니다." };
   }
-  if (user.is_anonymous) {
+  if (user.is_anonymous && !board.allow_anonymous) {
     return { error: "글을 작성하려면 회원가입이 필요합니다." };
+  }
+
+  if (!board.allow_posts) {
+    return { error: "이 게시판은 현재 글쓰기가 제한되어 있습니다." };
+  }
+
+  if (board.admin_only_posting) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .single();
+    if (!profile?.is_admin) {
+      return { error: "이 게시판은 관리자만 글을 작성할 수 있습니다." };
+    }
   }
 
   const suspension = await suspensionMessage(supabase, user.id);
@@ -60,9 +76,21 @@ export async function createPost(
     return { error: suspension };
   }
 
+  // `board` (the legacy enum column) is NOT NULL and only covers the
+  // original 4 boards, so a brand-new admin-created board falls back to
+  // "free" there — matching the "기타" fallback used for poll categories.
+  // `board_id` is authoritative everywhere going forward.
+  const legacyBoard = isCommunityBoard(board.slug) ? board.slug : "free";
+
   const { data: post, error: postError } = await supabase
     .from("community_posts")
-    .insert({ board, author_id: user.id, title, body })
+    .insert({
+      board_id: board.id,
+      board: legacyBoard,
+      author_id: user.id,
+      title,
+      body,
+    })
     .select("id")
     .single();
 
@@ -71,10 +99,14 @@ export async function createPost(
   }
 
   if (image instanceof File && image.size > 0) {
-    const path = `${post.id}/${crypto.randomUUID()}.${extensionFor(image)}`;
+    const animated = isAnimatedGif(image);
+    const path = `${post.id}/${crypto.randomUUID()}.${animated ? "gif" : "webp"}`;
+    const body = animated
+      ? image
+      : await toOptimizedWebp(await image.arrayBuffer(), { maxWidth: 1200 });
     const { error: uploadError } = await supabase.storage
       .from(COMMUNITY_IMAGE_BUCKET)
-      .upload(path, image, { contentType: image.type, upsert: true });
+      .upload(path, body, { contentType: animated ? "image/gif" : "image/webp", upsert: true });
 
     if (uploadError) {
       return { error: `이미지 업로드 실패: ${uploadError.message}` };
@@ -90,12 +122,12 @@ export async function createPost(
     }
   }
 
-  revalidatePath(`/community/${board}`);
-  redirect(`/community/${board}/${post.id}`);
+  revalidatePath(`/community/${boardSlug}`);
+  redirect(`/community/${boardSlug}/${post.id}`);
 }
 
 export async function updatePost(
-  board: CommunityBoard,
+  board: string,
   postId: string,
   _prevState: PostFormState,
   formData: FormData
@@ -121,7 +153,7 @@ export async function updatePost(
   redirect(`/community/${board}/${postId}`);
 }
 
-export async function deletePost(board: CommunityBoard, postId: string) {
+export async function deletePost(board: string, postId: string) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -160,7 +192,7 @@ export async function deletePost(board: CommunityBoard, postId: string) {
   redirect(`/community/${board}`);
 }
 
-export async function toggleLike(board: CommunityBoard, postId: string) {
+export async function toggleLike(board: string, postId: string) {
   const supabase = await createClient();
   const {
     data: { user },

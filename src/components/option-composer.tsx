@@ -5,7 +5,6 @@ import { UploadCloudIcon, XIcon } from "lucide-react";
 import { VoteCard } from "@/components/vote-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { PollCategory } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
@@ -13,7 +12,8 @@ const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 
 type OptionComposerProps = {
   side: "A" | "B";
-  category: PollCategory;
+  category: string;
+  categoryColor?: string | null;
   /** FormData field name for the file, e.g. "imageA". */
   imageName: string;
   /** FormData field name for the label, e.g. "optionA". */
@@ -25,6 +25,7 @@ type OptionComposerProps = {
 export function OptionComposer({
   side,
   category,
+  categoryColor,
   imageName,
   labelName,
   title,
@@ -80,7 +81,13 @@ export function OptionComposer({
       <div className="flex flex-col gap-4 sm:flex-row">
         {/* Live preview — exactly how the option will render when voting */}
         <div className="w-full max-w-[180px] shrink-0 self-center sm:self-start">
-          <VoteCard side={side} category={category} label={label || "선택지"} imageUrl={previewUrl} />
+          <VoteCard
+            side={side}
+            category={category}
+            categoryColor={categoryColor}
+            label={label || "선택지"}
+            imageUrl={previewUrl}
+          />
         </div>
 
         {/* Dropzone + controls */}

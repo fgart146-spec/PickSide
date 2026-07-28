@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/nav-bar";
+import { SiteFooter } from "@/components/site-footer";
 import { Toaster } from "@/components/ui/sonner";
+import { SITE_URL } from "@/lib/site-url";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,6 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "PickSide",
   description: "둘 중 하나를 골라 투표하는 서비스, PickSide",
 };
@@ -34,6 +37,7 @@ export default function RootLayout({
       >
         <NavBar />
         {children}
+        <SiteFooter />
         <Toaster />
         {/* Google AdSense — raw async tag so it appears verbatim in <head>.
             React 19 hoists async scripts to <head>; next/script would instead

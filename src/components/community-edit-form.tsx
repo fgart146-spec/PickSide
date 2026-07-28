@@ -2,7 +2,6 @@
 
 import { useActionState } from "react";
 import { updatePost, type PostFormState } from "@/app/community/actions";
-import type { CommunityBoard } from "@/lib/community-boards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +22,7 @@ export function CommunityEditForm({
   initialTitle,
   initialBody,
 }: {
-  board: CommunityBoard;
+  board: string;
   postId: string;
   initialTitle: string;
   initialBody: string;

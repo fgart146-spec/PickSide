@@ -52,6 +52,7 @@ export interface Database {
           question: string;
           status: "pending" | "published" | "rejected" | "hidden";
           category: "일상" | "음식" | "연애" | "게임" | "밸런스" | "기타";
+          category_id: string;
           view_count: number;
           vote_count: number;
           comment_count: number;
@@ -66,6 +67,7 @@ export interface Database {
           question: string;
           status?: "pending" | "published" | "rejected" | "hidden";
           category?: "일상" | "음식" | "연애" | "게임" | "밸런스" | "기타";
+          category_id: string;
           view_count?: number;
           vote_count?: number;
           comment_count?: number;
@@ -80,6 +82,7 @@ export interface Database {
           question?: string;
           status?: "pending" | "published" | "rejected" | "hidden";
           category?: "일상" | "음식" | "연애" | "게임" | "밸런스" | "기타";
+          category_id?: string;
           view_count?: number;
           vote_count?: number;
           comment_count?: number;
@@ -95,8 +98,63 @@ export interface Database {
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "polls_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
           }
         ];
+      };
+      categories: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          description: string | null;
+          icon: string | null;
+          color: string | null;
+          display_order: number;
+          is_visible: boolean;
+          show_on_home: boolean;
+          is_system: boolean;
+          is_deleted: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug: string;
+          description?: string | null;
+          icon?: string | null;
+          color?: string | null;
+          display_order?: number;
+          is_visible?: boolean;
+          show_on_home?: boolean;
+          is_system?: boolean;
+          is_deleted?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          slug?: string;
+          description?: string | null;
+          icon?: string | null;
+          color?: string | null;
+          display_order?: number;
+          is_visible?: boolean;
+          show_on_home?: boolean;
+          is_system?: boolean;
+          is_deleted?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       poll_options: {
         Row: {
@@ -211,6 +269,110 @@ export interface Database {
           }
         ];
       };
+      poll_bookmarks: {
+        Row: {
+          poll_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          poll_id: string;
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          poll_id?: string;
+          user_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "poll_bookmarks_poll_id_fkey";
+            columns: ["poll_id"];
+            isOneToOne: false;
+            referencedRelation: "polls";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "poll_bookmarks_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: string;
+          message: string;
+          link: string;
+          is_read: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: string;
+          message: string;
+          link: string;
+          is_read?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          type?: string;
+          message?: string;
+          link?: string;
+          is_read?: boolean;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      comment_likes: {
+        Row: {
+          comment_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          comment_id: string;
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          comment_id?: string;
+          user_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "comment_likes_comment_id_fkey";
+            columns: ["comment_id"];
+            isOneToOne: false;
+            referencedRelation: "comments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "comment_likes_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       reports: {
         Row: {
           id: string;
@@ -273,11 +435,13 @@ export interface Database {
         Row: {
           id: string;
           board: "free" | "humor" | "question" | "balance_suggestion";
+          board_id: string;
           author_id: string;
           title: string;
           body: string;
           image_path: string | null;
           view_count: number;
+          is_pinned: boolean;
           deleted_at: string | null;
           created_at: string;
           updated_at: string;
@@ -285,11 +449,13 @@ export interface Database {
         Insert: {
           id?: string;
           board: "free" | "humor" | "question" | "balance_suggestion";
+          board_id: string;
           author_id: string;
           title: string;
           body: string;
           image_path?: string | null;
           view_count?: number;
+          is_pinned?: boolean;
           deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -297,11 +463,13 @@ export interface Database {
         Update: {
           id?: string;
           board?: "free" | "humor" | "question" | "balance_suggestion";
+          board_id?: string;
           author_id?: string;
           title?: string;
           body?: string;
           image_path?: string | null;
           view_count?: number;
+          is_pinned?: boolean;
           deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -313,8 +481,78 @@ export interface Database {
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_posts_board_id_fkey";
+            columns: ["board_id"];
+            isOneToOne: false;
+            referencedRelation: "community_boards";
+            referencedColumns: ["id"];
           }
         ];
+      };
+      community_boards: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          description: string | null;
+          icon: string | null;
+          color: string | null;
+          display_order: number;
+          is_visible: boolean;
+          allow_posts: boolean;
+          allow_comments: boolean;
+          allow_images: boolean;
+          allow_anonymous: boolean;
+          allow_guest_view: boolean;
+          admin_only_posting: boolean;
+          is_system: boolean;
+          is_deleted: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug: string;
+          description?: string | null;
+          icon?: string | null;
+          color?: string | null;
+          display_order?: number;
+          is_visible?: boolean;
+          allow_posts?: boolean;
+          allow_comments?: boolean;
+          allow_images?: boolean;
+          allow_anonymous?: boolean;
+          allow_guest_view?: boolean;
+          admin_only_posting?: boolean;
+          is_system?: boolean;
+          is_deleted?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          slug?: string;
+          description?: string | null;
+          icon?: string | null;
+          color?: string | null;
+          display_order?: number;
+          is_visible?: boolean;
+          allow_posts?: boolean;
+          allow_comments?: boolean;
+          allow_images?: boolean;
+          allow_anonymous?: boolean;
+          allow_guest_view?: boolean;
+          admin_only_posting?: boolean;
+          is_system?: boolean;
+          is_deleted?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       community_post_likes: {
         Row: {
@@ -457,6 +695,8 @@ export interface Database {
           target_type: string;
           target_id: string | null;
           reason: string | null;
+          before_value: Json | null;
+          after_value: Json | null;
           created_at: string;
         };
         Insert: {
@@ -466,6 +706,8 @@ export interface Database {
           target_type: string;
           target_id?: string | null;
           reason?: string | null;
+          before_value?: Json | null;
+          after_value?: Json | null;
           created_at?: string;
         };
         Update: {
@@ -475,6 +717,8 @@ export interface Database {
           target_type?: string;
           target_id?: string | null;
           reason?: string | null;
+          before_value?: Json | null;
+          after_value?: Json | null;
           created_at?: string;
         };
         Relationships: [
@@ -630,6 +874,41 @@ export interface Database {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      policy_documents: {
+        Row: {
+          id: string;
+          slug: string;
+          title: string;
+          body: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          title: string;
+          body: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          title?: string;
+          body?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "policy_documents_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       ai_tasks: {
         Row: {

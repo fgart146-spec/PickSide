@@ -36,7 +36,7 @@ export default async function AdminCommentsPage({
 
   const { data } = await supabase
     .from("comments")
-    .select("id, body, created_at, poll_id, profiles(username), polls(question)")
+    .select("id, body, created_at, poll_id, profiles!comments_author_id_fkey(username), polls(question)")
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .range(from, from + PAGE_SIZE);

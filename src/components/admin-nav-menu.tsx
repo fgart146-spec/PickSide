@@ -7,11 +7,14 @@ import { Button } from "@/components/ui/button";
 const ADMIN_LINKS = [
   { href: "/admin/polls", label: "승인 관리" },
   { href: "/admin/content", label: "콘텐츠 관리" },
+  { href: "/admin/community", label: "커뮤니티 관리" },
   { href: "/admin/users", label: "사용자 관리" },
   { href: "/admin/home", label: "홈 관리" },
   { href: "/admin/reports", label: "신고 처리" },
   { href: "/admin/office", label: "AI 직원 관리" },
   { href: "/admin/trash", label: "휴지통" },
+  { href: "/admin/audit-log", label: "감사 로그" },
+  { href: "/admin/policies", label: "약관/정책 관리" },
 ];
 
 // A hand-rolled dropdown instead of the Base UI Menu: NavBar is a dynamic

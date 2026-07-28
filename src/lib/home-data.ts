@@ -1,20 +1,70 @@
 import { unstable_cache } from "next/cache";
 import { createServiceClient, SITE_CONTENT_BUCKET } from "@/lib/supabase/service";
 import { isHomeSectionKey, type HomeSectionKey } from "@/lib/home-sections";
-import type { PollCategory } from "@/lib/categories";
 
 // Widget rows now read the denormalized vote_count/comment_count columns
 // (migration 20260727000007) instead of asking PostgREST to aggregate
-// votes(count)/comments(count) per row.
-const WIDGET_SELECT = "id, question, category, vote_count, comment_count";
+// votes(count)/comments(count) per row. category_id (migration
+// 20260727000009) is joined to the admin-managed categories table instead
+// of trusting the legacy `category` enum column, so brand-new categories
+// display correctly too.
+const WIDGET_SELECT =
+  "id, question, vote_count, comment_count, categories!polls_category_id_fkey(name, slug, icon, color)";
+
+export type CategoryEmbed = { name: string; slug: string; icon: string | null; color: string | null };
+
+export function flattenCategory(row: { categories: CategoryEmbed | null }) {
+  return {
+    categoryName: row.categories?.name ?? "미분류",
+    categorySlug: row.categories?.slug ?? "uncategorized",
+    categoryIcon: row.categories?.icon ?? null,
+    categoryColor: row.categories?.color ?? null,
+  };
+}
 
 export type PollWidget = {
   id: string;
   question: string;
-  category: PollCategory;
+  categoryName: string;
+  categorySlug: string;
+  categoryIcon: string | null;
+  categoryColor: string | null;
   vote_count: number;
   comment_count: number;
 };
+
+export type CategoryNavItem = {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string | null;
+  color: string | null;
+};
+
+async function loadVisibleCategories(): Promise<CategoryNavItem[]> {
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("categories")
+    .select("id, name, slug, icon, color")
+    .eq("is_visible", true)
+    .eq("is_deleted", false)
+    .order("display_order", { ascending: true });
+  return data ?? [];
+}
+
+// Cached alongside the rest of the home portal data — category admin
+// actions call revalidateTag("home-portal") so a new/edited/hidden category
+// shows up within the same request cycle, not after the 60s TTL.
+export const getVisibleCategories = unstable_cache(
+  loadVisibleCategories,
+  ["visible-categories"],
+  { revalidate: 60, tags: ["home-portal"] }
+);
+
+export async function getCategoryBySlug(slug: string): Promise<CategoryNavItem | null> {
+  const categories = await getVisibleCategories();
+  return categories.find((c) => c.slug === slug) ?? null;
+}
 
 export type HomeBanner = {
   id: string;
@@ -31,6 +81,13 @@ export type HomePopupItem = {
   linkUrl: string | null;
 };
 
+export type CommunityHighlight = {
+  id: string;
+  title: string;
+  boardSlug: string;
+  boardName: string;
+};
+
 export type HomePortalData = {
   stats: { totalPollCount: number; todayVoteCount: number };
   visibleSectionKeys: HomeSectionKey[];
@@ -39,6 +96,7 @@ export type HomePortalData = {
   latestPolls: PollWidget[];
   banners: HomeBanner[];
   popups: HomePopupItem[];
+  communityHighlights: CommunityHighlight[];
 };
 
 // Prefer an admin-curated "추천" poll; if none is marked, fall back to a
@@ -75,6 +133,7 @@ async function loadHomePortalData(): Promise<HomePortalData> {
     { data: homeSections },
     { data: homeBanners },
     { data: popups },
+    { data: communityPosts },
   ] = await Promise.all([
     supabase
       .from("polls")
@@ -107,6 +166,16 @@ async function loadHomePortalData(): Promise<HomePortalData> {
       .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
       .order("created_at", { ascending: false })
       .limit(5),
+    supabase
+      .from("community_posts")
+      .select(
+        "id, title, created_at, community_post_likes(count), community_boards!inner(slug, name, is_visible, is_deleted)"
+      )
+      .is("deleted_at", null)
+      .eq("community_boards.is_visible", true)
+      .eq("community_boards.is_deleted", false)
+      .order("created_at", { ascending: false })
+      .limit(30),
   ]);
 
   const publicUrl = (path: string) =>
@@ -117,7 +186,18 @@ async function loadHomePortalData(): Promise<HomePortalData> {
     .map((s) => s.key)
     .filter(isHomeSectionKey);
 
-  const pool = featuredPool && featuredPool.length > 0 ? featuredPool : latest ?? [];
+  const toWidget = (row: unknown) => {
+    const r = row as { id: string; question: string; vote_count: number; comment_count: number } & {
+      categories: CategoryEmbed | null;
+    };
+    return { id: r.id, question: r.question, vote_count: r.vote_count, comment_count: r.comment_count, ...flattenCategory(r) };
+  };
+
+  const popularWidgets = (popular ?? []).map(toWidget);
+  const latestWidgets = (latest ?? []).map(toWidget);
+  const featuredWidgets = (featuredPool ?? []).map(toWidget);
+
+  const pool = featuredWidgets.length > 0 ? featuredWidgets : latestWidgets;
 
   const banners: HomeBanner[] = (homeBanners ?? [])
     .map((b) => ({
@@ -136,6 +216,24 @@ async function loadHomePortalData(): Promise<HomePortalData> {
     linkUrl: p.link_url,
   }));
 
+  const communityHighlights: CommunityHighlight[] = (
+    (communityPosts as unknown as {
+      id: string;
+      title: string;
+      community_post_likes: { count: number }[];
+      community_boards: { slug: string; name: string } | null;
+    }[]) ?? []
+  )
+    .filter((p) => p.community_boards)
+    .sort((a, b) => (b.community_post_likes[0]?.count ?? 0) - (a.community_post_likes[0]?.count ?? 0))
+    .slice(0, 5)
+    .map((p) => ({
+      id: p.id,
+      title: p.title,
+      boardSlug: p.community_boards!.slug,
+      boardName: p.community_boards!.name,
+    }));
+
   return {
     stats: {
       totalPollCount: totalPollCount ?? 0,
@@ -143,10 +241,11 @@ async function loadHomePortalData(): Promise<HomePortalData> {
     },
     visibleSectionKeys,
     featuredPoll: pickDailyFeatured(pool),
-    popularPolls: popular ?? [],
-    latestPolls: latest ?? [],
+    popularPolls: popularWidgets,
+    latestPolls: latestWidgets,
     banners,
     popups: popupItems,
+    communityHighlights,
   };
 }
 
@@ -170,7 +269,10 @@ export type PollListItem = {
   id: string;
   question: string;
   created_at: string;
-  category: PollCategory;
+  categoryName: string;
+  categorySlug: string;
+  categoryIcon: string | null;
+  categoryColor: string | null;
   view_count: number;
   is_pinned: boolean;
   is_featured: boolean;
@@ -179,10 +281,10 @@ export type PollListItem = {
 };
 
 const LIST_SELECT =
-  "id, question, created_at, category, view_count, is_pinned, is_featured, vote_count, comment_count";
+  "id, question, created_at, view_count, is_pinned, is_featured, vote_count, comment_count, categories!polls_category_id_fkey(name, slug, icon, color)";
 
 async function loadPollPage(
-  category: PollCategory | null,
+  categoryId: string | null,
   sort: PollSort,
   page: number
 ): Promise<{ polls: PollListItem[]; hasNext: boolean }> {
@@ -194,7 +296,7 @@ async function loadPollPage(
     .select(LIST_SELECT)
     .eq("status", "published")
     .is("deleted_at", null);
-  if (category) q = q.eq("category", category);
+  if (categoryId) q = q.eq("category_id", categoryId);
 
   // Pinned first, then the requested sort — ordered in the database so we
   // only transfer one page of rows instead of the whole table.
@@ -208,8 +310,28 @@ async function loadPollPage(
   // Fetch one extra row to detect a next page without a separate count query.
   const { data, error } = await q.range(from, from + POLL_PAGE_SIZE);
   if (error) throw new Error(error.message);
-  const rows = (data ?? []) as PollListItem[];
-  return { polls: rows.slice(0, POLL_PAGE_SIZE), hasNext: rows.length > POLL_PAGE_SIZE };
+  const rows = (data ?? []) as unknown as ({
+    id: string;
+    question: string;
+    created_at: string;
+    view_count: number;
+    is_pinned: boolean;
+    is_featured: boolean;
+    vote_count: number;
+    comment_count: number;
+  } & { categories: CategoryEmbed | null })[];
+  const items: PollListItem[] = rows.map((r) => ({
+    id: r.id,
+    question: r.question,
+    created_at: r.created_at,
+    view_count: r.view_count,
+    is_pinned: r.is_pinned,
+    is_featured: r.is_featured,
+    vote_count: r.vote_count,
+    comment_count: r.comment_count,
+    ...flattenCategory(r),
+  }));
+  return { polls: items.slice(0, POLL_PAGE_SIZE), hasNext: items.length > POLL_PAGE_SIZE };
 }
 
 // Published poll pages are identical for every visitor, so cache them keyed

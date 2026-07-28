@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { UserIcon, FileTextIcon, MessageSquareIcon, ThumbsUpIcon } from "lucide-react";
+import { UserIcon, FileTextIcon, MessageSquareIcon, ThumbsUpIcon, BookmarkIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { UsernameForm } from "@/components/username-form";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +31,7 @@ export default async function MyPage() {
     redirect("/signup");
   }
 
-  const [{ data: profile }, { data: myPolls }, { data: myComments }, { data: myVotes }] =
+  const [{ data: profile }, { data: myPolls }, { data: myComments }, { data: myVotes }, { data: myBookmarks }] =
     await Promise.all([
       supabase.from("profiles").select("username").eq("id", user.id).single(),
       supabase
@@ -51,7 +51,21 @@ export default async function MyPage() {
         .select("id, created_at, poll_id, poll_options(label), polls(question)")
         .eq("voter_id", user.id)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("poll_bookmarks")
+        .select("poll_id, created_at, polls(question, deleted_at)")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
     ]);
+
+  const bookmarkedPolls = (
+    (myBookmarks as unknown as {
+      poll_id: string;
+      polls: { question: string; deleted_at: string | null } | null;
+    }[]) ?? []
+  )
+    .filter((b) => b.polls && !b.polls.deleted_at)
+    .map((b) => ({ poll_id: b.poll_id, question: b.polls!.question }));
 
   return (
     <div className="flex flex-1 justify-center px-4 py-12">
@@ -155,6 +169,25 @@ export default async function MyPage() {
               </Link>
             );
           })}
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <h2 className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+            <BookmarkIcon className="size-4" />
+            북마크한 투표 ({bookmarkedPolls.length})
+          </h2>
+          {bookmarkedPolls.length === 0 && (
+            <p className="text-sm text-muted-foreground">아직 북마크한 투표가 없어요.</p>
+          )}
+          {bookmarkedPolls.map((bookmark) => (
+            <Link key={bookmark.poll_id} href={`/polls/${bookmark.poll_id}`}>
+              <Card className="transition-colors hover:bg-accent">
+                <CardHeader>
+                  <CardTitle className="text-base">{bookmark.question}</CardTitle>
+                </CardHeader>
+              </Card>
+            </Link>
+          ))}
         </div>
       </div>
     </div>

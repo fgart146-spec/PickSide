@@ -21,6 +21,8 @@ export async function toggleSectionVisibility(key: string, isVisible: boolean) {
     action: isVisible ? "home_section.show" : "home_section.hide",
     targetType: "home_sections",
     targetId: key,
+    before: { is_visible: !isVisible },
+    after: { is_visible: isVisible },
   });
 
   revalidatePath("/admin/home-sections");
@@ -64,6 +66,8 @@ export async function moveSection(key: string, direction: "up" | "down") {
     targetType: "home_sections",
     targetId: key,
     reason: `${direction} (swapped with ${swapWith.key})`,
+    before: { sort_order: current.sort_order },
+    after: { sort_order: swapWith.sort_order },
   });
 
   revalidatePath("/admin/home-sections");
