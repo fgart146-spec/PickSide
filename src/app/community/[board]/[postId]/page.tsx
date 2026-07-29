@@ -20,13 +20,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { SITE_URL } from "@/lib/site-url";
 
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ board: string; postId: string }>;
 }): Promise<Metadata> {
-  const { postId } = await params;
+  const { board: boardSlug, postId } = await params;
   const service = createServiceClient();
   const { data: post } = await service
     .from("community_posts")
@@ -36,14 +37,16 @@ export async function generateMetadata({
     .single();
 
   if (!post) {
-    return { title: "PickSide" };
+    return {};
   }
 
   const description = post.body.slice(0, 100);
+  const url = `${SITE_URL}/community/${boardSlug}/${postId}`;
   return {
-    title: `${post.title} | PickSide`,
+    title: post.title,
     description,
-    openGraph: { title: post.title, description },
+    alternates: { canonical: `/community/${boardSlug}/${postId}` },
+    openGraph: { title: post.title, description, url },
   };
 }
 

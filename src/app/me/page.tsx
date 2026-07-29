@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { UserIcon, FileTextIcon, MessageSquareIcon, ThumbsUpIcon, BookmarkIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { pollPath } from "@/lib/seo";
 import { UsernameForm } from "@/components/username-form";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -95,7 +96,7 @@ export default async function MyPage() {
             <p className="text-sm text-muted-foreground">아직 만든 투표가 없어요.</p>
           )}
           {myPolls?.map((poll) => (
-            <Link key={poll.id} href={`/polls/${poll.id}`}>
+            <Link key={poll.id} href={pollPath(poll.id, poll.question)}>
               <Card className="transition-colors hover:bg-accent">
                 <CardHeader className="flex-row items-center justify-between space-y-0">
                   <CardTitle className="text-base">{poll.question}</CardTitle>
@@ -129,7 +130,7 @@ export default async function MyPage() {
               (comment as unknown as { polls: { question: string } | null }).polls
                 ?.question ?? "삭제된 투표";
             return (
-              <Link key={comment.id} href={`/polls/${comment.poll_id}`}>
+              <Link key={comment.id} href={pollPath(comment.poll_id, pollQuestion)}>
                 <Card className="transition-colors hover:bg-accent">
                   <CardHeader>
                     <CardTitle className="text-base">{pollQuestion}</CardTitle>
@@ -159,7 +160,7 @@ export default async function MyPage() {
               (vote as unknown as { poll_options: { label: string } | null })
                 .poll_options?.label ?? "알 수 없음";
             return (
-              <Link key={vote.id} href={`/polls/${vote.poll_id}`}>
+              <Link key={vote.id} href={pollPath(vote.poll_id, pollQuestion)}>
                 <Card className="transition-colors hover:bg-accent">
                   <CardHeader>
                     <CardTitle className="text-base">{pollQuestion}</CardTitle>
@@ -180,7 +181,7 @@ export default async function MyPage() {
             <p className="text-sm text-muted-foreground">아직 북마크한 투표가 없어요.</p>
           )}
           {bookmarkedPolls.map((bookmark) => (
-            <Link key={bookmark.poll_id} href={`/polls/${bookmark.poll_id}`}>
+            <Link key={bookmark.poll_id} href={pollPath(bookmark.poll_id, bookmark.question)}>
               <Card className="transition-colors hover:bg-accent">
                 <CardHeader>
                   <CardTitle className="text-base">{bookmark.question}</CardTitle>

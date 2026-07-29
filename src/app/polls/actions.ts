@@ -7,6 +7,7 @@ import { PUBLIC_IMAGE_BUCKET } from "@/lib/supabase/service";
 import { legacyCategoryFor } from "@/lib/categories";
 import { suspensionMessage } from "@/lib/moderation";
 import { toOptimizedWebp } from "@/lib/image-processing";
+import { pollPath } from "@/lib/seo";
 
 export type CreatePollState = { error: string | null };
 
@@ -132,7 +133,7 @@ export async function createPoll(
   }
 
   revalidatePath("/");
-  redirect(`/polls/${poll.id}`);
+  redirect(pollPath(poll.id, question));
 }
 
 export async function castVote(pollId: string, optionId: string) {

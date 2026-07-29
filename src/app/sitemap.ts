@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { createServiceClient } from "@/lib/supabase/service";
 import { SITE_URL } from "@/lib/site-url";
+import { pollPath } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -10,7 +11,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [{ data: polls }, { data: boards }, { data: posts }] = await Promise.all([
     supabase
       .from("polls")
-      .select("id, created_at")
+      .select("id, question, created_at")
       .eq("status", "published")
       .is("deleted_at", null),
     supabase
@@ -34,7 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   const pollEntries: MetadataRoute.Sitemap = (polls ?? []).map((poll) => ({
-    url: `${SITE_URL}/polls/${poll.id}`,
+    url: `${SITE_URL}${pollPath(poll.id, poll.question)}`,
     lastModified: poll.created_at,
     changeFrequency: "daily",
     priority: 0.7,

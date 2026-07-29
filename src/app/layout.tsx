@@ -4,7 +4,18 @@ import "./globals.css";
 import { NavBar } from "@/components/nav-bar";
 import { SiteFooter } from "@/components/site-footer";
 import { Toaster } from "@/components/ui/sonner";
+import { JsonLd } from "@/components/json-ld";
 import { SITE_URL } from "@/lib/site-url";
+import {
+  SITE_NAME,
+  SITE_TITLE,
+  SITE_DESCRIPTION,
+  SITE_KEYWORDS,
+  OG_TITLE,
+  OG_DESCRIPTION,
+  websiteJsonLd,
+  organizationJsonLd,
+} from "@/lib/seo";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,8 +29,28 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "PickSide",
-  description: "둘 중 하나를 골라 투표하는 서비스, PickSide",
+  title: {
+    default: SITE_TITLE,
+    template: "%s | PickSide",
+  },
+  description: SITE_DESCRIPTION,
+  keywords: SITE_KEYWORDS,
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: OG_TITLE,
+    description: OG_DESCRIPTION,
+    url: SITE_URL,
+    locale: "ko_KR",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: OG_TITLE,
+    description: OG_DESCRIPTION,
+  },
   verification: {
     google: "yS2MeFG84-UO99z3qQ7acbHi3qOgDckT2yxMKvtHwJI",
     other: {
@@ -41,6 +72,8 @@ export default function RootLayout({
       <body
         className="min-h-full flex flex-col bg-[url('/site-background.webp')] bg-cover bg-center bg-fixed bg-no-repeat"
       >
+        <JsonLd data={websiteJsonLd()} />
+        <JsonLd data={organizationJsonLd()} />
         <NavBar />
         {children}
         <SiteFooter />

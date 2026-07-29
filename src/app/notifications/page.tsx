@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "알림 | PickSide",
+  title: "알림",
+  robots: { index: false, follow: false },
 };
 
 export default async function NotificationsPage() {

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { pollPath } from "@/lib/seo";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("polls")
-    .select("id")
+    .select("id, question")
     .eq("status", "published")
     .is("deleted_at", null);
 
@@ -15,5 +16,5 @@ export async function GET(request: Request) {
   }
 
   const pick = polls[Math.floor(Math.random() * polls.length)];
-  return NextResponse.redirect(new URL(`/polls/${pick.id}`, request.url));
+  return NextResponse.redirect(new URL(pollPath(pick.id, pick.question), request.url));
 }

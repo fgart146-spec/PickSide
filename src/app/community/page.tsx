@@ -4,10 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { getVisibleBoards } from "@/lib/community-boards-data";
 import { BrowseSidebar } from "@/components/browse-sidebar";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
-  title: "커뮤니티 | PickSide",
-  description: "자유게시판, 유머, 고민상담까지 — PickSide 커뮤니티",
+  title: "커뮤니티",
+  description:
+    "자유게시판, 유머, 고민상담부터 밸런스게임 주제 추천까지 — PickSide 커뮤니티",
+  alternates: { canonical: "/community" },
+  openGraph: { url: `${SITE_URL}/community` },
 };
 
 export default async function CommunityPage() {

@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { createServiceClient } from "@/lib/supabase/service";
 import { SITE_URL } from "@/lib/site-url";
 import { PICK_PURPLE } from "@/lib/poll-visuals";
+import { extractPollId, pollPath } from "@/lib/seo";
 
 export const alt = "PickSide 투표 결과";
 export const size = { width: 1200, height: 630 };
@@ -23,7 +24,8 @@ async function loadPoll(id: string) {
 }
 
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const id = extractPollId(rawId);
   const poll = await loadPoll(id);
 
   if (!poll || poll.poll_options.length < 2) {
@@ -56,7 +58,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   const pctA = total === 0 ? 50 : Math.round((countA / total) * 100);
   const pctB = 100 - pctA;
 
-  const qrDataUrl = await QRCode.toDataURL(`${SITE_URL}/polls/${id}`, {
+  const qrDataUrl = await QRCode.toDataURL(`${SITE_URL}${pollPath(id, poll.question)}`, {
     width: 160,
     margin: 1,
     color: { dark: "#1e1b4b", light: "#ffffff" },

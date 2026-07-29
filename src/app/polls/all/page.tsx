@@ -10,10 +10,14 @@ import {
 } from "@/lib/speed-game";
 import { SpeedGame } from "@/components/speed-game";
 import { Button } from "@/components/ui/button";
+import { SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
-  title: "전체 랜덤투표 | PickSide",
-  description: "카테고리별로 모든 투표를 랜덤 순서로 빠르게 즐겨보세요.",
+  title: "전체 랜덤투표 — 밸런스게임 모아보기",
+  description:
+    "카테고리별로 모든 밸런스게임(Balance Game)을 랜덤 순서로 빠르게 즐겨보세요.",
+  alternates: { canonical: "/polls/all" },
+  openGraph: { url: `${SITE_URL}/polls/all` },
 };
 
 export default async function AllRandomPollsPage({

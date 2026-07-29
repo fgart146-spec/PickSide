@@ -12,6 +12,7 @@ import { ReportButton } from "@/components/report-button";
 import { BookmarkButton } from "@/components/bookmark-button";
 import { AdSlot } from "@/components/ad-slot";
 import { BrowseSidebar } from "@/components/browse-sidebar";
+import { JsonLd } from "@/components/json-ld";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +22,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { SITE_URL } from "@/lib/site-url";
+import { extractPollId, pollPath, pollUrl, breadcrumbJsonLd, webPageJsonLd } from "@/lib/seo";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "승인 대기 중",
@@ -33,7 +36,8 @@ export async function generateMetadata({
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const id = extractPollId(rawId);
   const service = createServiceClient();
   const { data: poll } = await service
     .from("polls")
@@ -43,17 +47,23 @@ export async function generateMetadata({
     .single();
 
   if (!poll) {
-    return { title: "PickSide" };
+    return {};
   }
 
   const options = (poll as unknown as { poll_options: { label: string }[] }).poll_options;
   const description =
-    options.length >= 2 ? `${options[0].label} VS ${options[1].label}` : "PickSide 투표";
+    options.length >= 2
+      ? `${options[0].label} VS ${options[1].label} — 밸런스게임(Balance Game) 투표에 참여하고 결과를 확인해보세요.`
+      : "PickSide 밸런스게임 투표";
+  const canonicalPath = pollPath(id, poll.question);
+  const url = `${SITE_URL}${canonicalPath}`;
 
   return {
-    title: `${poll.question} | PickSide`,
+    title: poll.question,
     description,
-    openGraph: { title: poll.question, description },
+    keywords: ["밸런스게임", "양자택일", "투표", "Balance Game", "Would You Rather", poll.question],
+    alternates: { canonical: canonicalPath },
+    openGraph: { title: poll.question, description, url, type: "website" },
     twitter: { card: "summary_large_image", title: poll.question, description },
   };
 }
@@ -65,7 +75,8 @@ export default async function PollPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ commentSort?: string }>;
 }) {
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const id = extractPollId(rawId);
   const { commentSort } = await searchParams;
   const sortByPopular = commentSort === "popular";
   const supabase = await createClient();
@@ -163,8 +174,24 @@ export default async function PollPage({
     sortByPopular ? commentLikeCount(b) - commentLikeCount(a) : 0
   );
 
+  const canonicalUrl = pollUrl(id, poll.question);
+
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:items-start lg:gap-8">
+      <JsonLd
+        data={webPageJsonLd({
+          name: poll.question,
+          description: `${optionA.label} VS ${optionB.label} — 밸런스게임 투표`,
+          url: canonicalUrl,
+        })}
+      />
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "홈", url: SITE_URL },
+          { name: poll.category, url: `${SITE_URL}/?category=${categorySlug ?? ""}` },
+          { name: poll.question, url: canonicalUrl },
+        ])}
+      />
       <BrowseSidebar activeCategory={categorySlug} />
 
       <div className="mx-auto flex w-full max-w-lg flex-col lg:mx-0">
@@ -191,6 +218,7 @@ export default async function PollPage({
                 </Badge>
               )}
             </div>
+            <h1 className="sr-only">{poll.question}</h1>
             <CardTitle className="text-2xl">{poll.question}</CardTitle>
             <CardDescription>
               만든 사람: {ownerUsername} · 조회수 {poll.view_count}
@@ -255,13 +283,17 @@ export default async function PollPage({
                   size="sm"
                   variant={sortByPopular ? "outline" : "default"}
                   nativeButton={false}
-                  render={<Link href={`/polls/${id}#comments`}>최신순</Link>}
+                  render={<Link href={`${pollPath(id, poll.question)}#comments`}>최신순</Link>}
                 />
                 <Button
                   size="sm"
                   variant={sortByPopular ? "default" : "outline"}
                   nativeButton={false}
-                  render={<Link href={`/polls/${id}?commentSort=popular#comments`}>좋아요순</Link>}
+                  render={
+                    <Link href={`${pollPath(id, poll.question)}?commentSort=popular#comments`}>
+                      좋아요순
+                    </Link>
+                  }
                 />
               </div>
             </CardHeader>

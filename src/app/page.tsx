@@ -28,6 +28,9 @@ import { Input } from "@/components/ui/input";
 import { AdSlot } from "@/components/ad-slot";
 import { NoticeBanner } from "@/components/notice-banner";
 import { HomePopup } from "@/components/home-popup";
+import { JsonLd } from "@/components/json-ld";
+import { SITE_URL } from "@/lib/site-url";
+import { pollPath, webPageJsonLd, SITE_DESCRIPTION } from "@/lib/seo";
 import {
   ShuffleIcon,
   DicesIcon,
@@ -286,7 +289,7 @@ export default async function Home({
       </div>
     ),
     featured: featuredPoll ? (
-      <Link href={`/polls/${featuredPoll.id}`}>
+      <Link href={pollPath(featuredPoll.id, featuredPoll.question)}>
         <Card className="border-primary/30 bg-primary/5 transition-colors hover:bg-primary/10">
           <CardHeader>
             <div className="mb-1 flex items-center gap-2">
@@ -306,7 +309,7 @@ export default async function Home({
     ) : null,
     popular: (
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">실시간 인기 투표</h2>
+        <h2 className="text-sm font-semibold">인기 밸런스게임</h2>
         {popularPolls.length === 0 && (
           <p className="text-sm text-muted-foreground">아직 투표가 없어요.</p>
         )}
@@ -314,7 +317,7 @@ export default async function Home({
           {popularPolls.map((poll, i) => (
             <li key={poll.id}>
               <Link
-                href={`/polls/${poll.id}`}
+                href={pollPath(poll.id, poll.question)}
                 className="flex items-baseline gap-2 rounded px-1 py-1 text-sm hover:bg-accent"
               >
                 <span className="text-muted-foreground">{i + 1}</span>
@@ -330,7 +333,7 @@ export default async function Home({
     ),
     latest: (
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">최신 투표</h2>
+        <h2 className="text-sm font-semibold">최신 밸런스게임</h2>
         {latestPolls.length === 0 && (
           <p className="text-sm text-muted-foreground">아직 투표가 없어요.</p>
         )}
@@ -338,7 +341,7 @@ export default async function Home({
           {latestPolls.map((poll) => (
             <li key={poll.id}>
               <Link
-                href={`/polls/${poll.id}`}
+                href={pollPath(poll.id, poll.question)}
                 className="flex items-baseline gap-2 rounded px-1 py-1 text-sm hover:bg-accent"
               >
                 <Badge variant="outline" className="shrink-0">
@@ -377,6 +380,13 @@ export default async function Home({
 
   return (
     <div className="flex flex-1 flex-col">
+      <JsonLd
+        data={webPageJsonLd({
+          name: "밸런스게임 커뮤니티 PickSide",
+          description: SITE_DESCRIPTION,
+          url: SITE_URL,
+        })}
+      />
       <HomePopup popups={popupItems} />
 
       <div className="mx-auto hidden w-full max-w-6xl px-4 pt-6 lg:block">
@@ -431,15 +441,20 @@ export default async function Home({
 
         {/* Center: main content */}
         <main className="mx-auto flex w-full max-w-lg flex-col gap-6 lg:mx-0 lg:max-w-none">
+          <div className="flex flex-col gap-1">
+            <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+              <ScaleIcon className="size-6 text-primary" />
+              밸런스게임 커뮤니티 PickSide
+            </h1>
+            <p className="text-sm text-muted-foreground">둘 중 뭐가 나아? 양자택일 밸런스게임에 투표하고 의견을 나눠보세요.</p>
+          </div>
+
           {visibleSectionKeys.map((key) => (
             <Fragment key={key}>{sectionBlocks[key]}</Fragment>
           ))}
 
           <div className="flex flex-col gap-4 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
-            <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-              <ScaleIcon className="size-6 text-primary" />
-              둘 중 뭐가 나아?
-            </h1>
+            <h2 className="text-base font-semibold tracking-tight">새로운 밸런스게임 만들기</h2>
             <Button
               size="sm"
               nativeButton={false}
@@ -515,7 +530,7 @@ export default async function Home({
                 (index + 1) % 4 === 0 && index !== polls.length - 1;
               return (
                 <Fragment key={poll.id}>
-                  <Link href={`/polls/${poll.id}`}>
+                  <Link href={pollPath(poll.id, poll.question)}>
                     <Card className="transition-colors hover:bg-accent">
                       <CardHeader>
                         <div className="mb-1 flex flex-wrap gap-1">

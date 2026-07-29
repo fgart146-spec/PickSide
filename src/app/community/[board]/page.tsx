@@ -11,6 +11,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { SITE_URL } from "@/lib/site-url";
 
 const SORT_OPTIONS = ["latest", "popular", "comments"] as const;
 type SortOption = (typeof SORT_OPTIONS)[number];
@@ -43,11 +44,17 @@ export async function generateMetadata({
   const { board: boardSlug } = await params;
   const board = await getBoardBySlug(boardSlug);
   if (!board) {
-    return { title: "PickSide" };
+    return {};
   }
-  const title = `${board.name} | PickSide 커뮤니티`;
-  const description = board.description ?? `PickSide ${board.name}`;
-  return { title, description, openGraph: { title, description } };
+  const title = board.name;
+  const description = board.description ?? `PickSide 커뮤니티 — ${board.name}`;
+  const url = `${SITE_URL}/community/${boardSlug}`;
+  return {
+    title,
+    description,
+    alternates: { canonical: `/community/${boardSlug}` },
+    openGraph: { title, description, url },
+  };
 }
 
 export default async function BoardPage({

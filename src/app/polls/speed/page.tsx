@@ -9,10 +9,13 @@ import {
   type PollWithOptionCounts,
 } from "@/lib/speed-game";
 import { SpeedGame } from "@/components/speed-game";
+import { SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
-  title: "스피드 게임 | PickSide",
-  description: "5초 안에 골라라! PickSide 스피드 게임.",
+  title: "스피드 밸런스게임",
+  description: "5초 안에 골라라! PickSide 스피드 밸런스게임(Balance Game).",
+  alternates: { canonical: "/polls/speed" },
+  openGraph: { url: `${SITE_URL}/polls/speed` },
 };
 
 export default async function SpeedGamePage() {

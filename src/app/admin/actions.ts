@@ -9,6 +9,7 @@ import {
 } from "@/lib/supabase/service";
 import { logAdminAction } from "@/lib/audit";
 import { notifyUser } from "@/lib/notifications";
+import { pollPath } from "@/lib/seo";
 
 export async function requireAdmin() {
   const supabase = await createClient();
@@ -94,7 +95,7 @@ export async function approvePoll(pollId: string) {
       userId: existing.owner_id,
       type: "poll_approved",
       message: `"${existing.question}" 투표가 승인되어 공개되었습니다.`,
-      link: `/polls/${pollId}`,
+      link: pollPath(pollId, existing.question),
     });
   }
 
@@ -143,7 +144,7 @@ export async function rejectPoll(pollId: string) {
       userId: existing.owner_id,
       type: "poll_rejected",
       message: `"${existing.question}" 투표가 거절되었습니다.`,
-      link: `/polls/${pollId}`,
+      link: pollPath(pollId, existing.question),
     });
   }
 

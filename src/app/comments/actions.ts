@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logAdminAction } from "@/lib/audit";
 import { suspensionMessage } from "@/lib/moderation";
 import { notifyUser } from "@/lib/notifications";
+import { pollPath } from "@/lib/seo";
 
 export type CommentState = { error: string | null };
 
@@ -58,7 +59,7 @@ export async function createComment(
       userId: poll.owner_id,
       type: "poll_comment",
       message: `"${poll.question}"에 새 댓글이 달렸습니다.`,
-      link: `/polls/${pollId}#comments`,
+      link: `${pollPath(pollId, poll.question)}#comments`,
     });
   }
 
