@@ -24,6 +24,9 @@ export const AD_POSITION_OPTIONS = [
   "기타",
 ];
 
+export const INQUIRY_STATUSES = ["received", "in_review", "answered", "on_hold", "spam"] as const;
+export type InquiryStatus = (typeof INQUIRY_STATUSES)[number];
+
 export const INQUIRY_STATUS_LABEL: Record<string, string> = {
   received: "접수",
   in_review: "확인 중",
@@ -33,9 +36,37 @@ export const INQUIRY_STATUS_LABEL: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Minimal spam guard for the public contact form: a honeypot field plus a
-// short per-email cooldown. Full IP-based rate limiting is a later phase —
-// this is deliberately lightweight, matching the "최소한의 방어" ask.
+// Admin-managed extra contact channels (contact_channels table) — icon key
+// stored in the DB, mapped to an actual lucide component only at render
+// time (see contact-channel-icon.tsx) so this list stays a plain string
+// union with no React import.
+// ---------------------------------------------------------------------------
+export const CONTACT_CHANNEL_ICONS = [
+  "kakao",
+  "email",
+  "instagram",
+  "discord",
+  "naver_talk",
+  "phone",
+  "link",
+] as const;
+export type ContactChannelIcon = (typeof CONTACT_CHANNEL_ICONS)[number];
+
+export const CONTACT_CHANNEL_ICON_LABEL: Record<ContactChannelIcon, string> = {
+  kakao: "카카오톡",
+  email: "이메일",
+  instagram: "인스타그램",
+  discord: "디스코드",
+  naver_talk: "네이버 톡톡",
+  phone: "전화",
+  link: "기타 링크",
+};
+
+// ---------------------------------------------------------------------------
+// Spam guard for the public contact form: a honeypot field, a short
+// per-email cooldown, and a per-IP daily cap. Deliberately lightweight
+// (no dedicated rate-limit table) — matches the "최소한의 방어" ask; a
+// full security audit is a separate, later effort.
 // ---------------------------------------------------------------------------
 
 export function isValidEmail(value: string): boolean {

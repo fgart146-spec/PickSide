@@ -9,6 +9,7 @@ import { ContactGeneralForm } from "@/components/contact-general-form";
 import { ContactBugForm } from "@/components/contact-bug-form";
 import { ContactAdForm } from "@/components/contact-ad-form";
 import { ContactPartnershipForm } from "@/components/contact-partnership-form";
+import { ContactChannelIconView } from "@/components/contact-channel-icon";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SITE_URL } from "@/lib/site-url";
@@ -51,25 +52,48 @@ export default async function ContactPage({
   }
 
   const service = createServiceClient();
-  const { data: settings } = await service
-    .from("contact_settings")
-    .select(
-      "business_inquiry_enabled, business_inquiry_label, business_inquiry_description, business_inquiry_url, business_inquiry_open_new_tab"
-    )
-    .eq("id", 1)
-    .single();
+  const [{ data: settings }, { data: channels }] = await Promise.all([
+    service.from("contact_settings").select("*").eq("id", 1).single(),
+    service
+      .from("contact_channels")
+      .select("*")
+      .eq("is_visible", true)
+      .order("sort_order", { ascending: true }),
+  ]);
 
-  // Phase 1: all 4 form types are always enabled; per-type toggles are a
-  // later phase (admin "문의 설정" CMS extension).
-  const enabledTypes: InquiryType[] = [...INQUIRY_TYPES];
+  if (settings && !settings.page_enabled) {
+    return (
+      <div className="mx-auto flex w-full max-w-lg flex-1 flex-col items-center justify-center gap-2 px-4 py-20 text-center">
+        <h1 className="text-xl font-semibold tracking-tight">문의하기</h1>
+        <p className="text-sm text-muted-foreground">
+          현재 문의 페이지 운영이 잠시 중단되었습니다. 다음에 다시 방문해주세요.
+        </p>
+      </div>
+    );
+  }
+
+  const enabledTypes: InquiryType[] = INQUIRY_TYPES.filter((t) => {
+    if (t === "general") return settings?.general_enabled ?? true;
+    if (t === "bug") return settings?.bug_enabled ?? true;
+    if (t === "ad") return settings?.ad_enabled ?? true;
+    return settings?.partnership_enabled ?? true;
+  });
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:py-12">
       <div className="mb-8 flex flex-col gap-1.5">
         <h1 className="text-2xl font-semibold tracking-tight">문의하기</h1>
         <p className="text-sm text-muted-foreground">
-          궁금한 점이나 불편한 점이 있으신가요? 아래에서 문의 유형을 선택해주세요.
+          {settings?.intro_text || "궁금한 점이나 불편한 점이 있으신가요? 아래에서 문의 유형을 선택해주세요."}
         </p>
+        {settings?.contact_email && (
+          <p className="text-xs text-muted-foreground">
+            대표 문의 이메일:{" "}
+            <a href={`mailto:${settings.contact_email}`} className="underline underline-offset-2">
+              {settings.contact_email}
+            </a>
+          </p>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
@@ -137,6 +161,44 @@ export default async function ContactPage({
               />
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {channels && channels.length > 0 && (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {channels.map((channel) => (
+            <Card key={channel.id}>
+              <CardHeader className="flex-row items-center gap-3 space-y-0">
+                <ContactChannelIconView
+                  icon={channel.icon}
+                  className="size-5 shrink-0 text-muted-foreground"
+                />
+                <div>
+                  <CardTitle className="text-sm">{channel.name}</CardTitle>
+                  {channel.description && (
+                    <CardDescription className="text-xs">{channel.description}</CardDescription>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  nativeButton={false}
+                  render={
+                    <Link
+                      href={channel.url}
+                      target={channel.open_new_tab ? "_blank" : undefined}
+                      rel={channel.open_new_tab ? "noopener noreferrer" : undefined}
+                    >
+                      {channel.button_label}
+                      <ExternalLinkIcon className="size-3.5" />
+                    </Link>
+                  }
+                />
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
     </div>

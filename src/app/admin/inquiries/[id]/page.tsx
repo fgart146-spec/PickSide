@@ -1,7 +1,11 @@
 import { redirect, notFound } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
-import { INQUIRY_TYPE_LABEL, INQUIRY_STATUS_LABEL, type InquiryType } from "@/lib/inquiries";
+import { deleteInquiry } from "@/app/admin/inquiries/actions";
+import { INQUIRY_TYPE_LABEL, type InquiryType } from "@/lib/inquiries";
+import { AdminInquiryStatusSelect } from "@/components/admin-inquiry-status-select";
+import { AdminInquiryNoteForm } from "@/components/admin-inquiry-note-form";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -76,7 +80,7 @@ export default async function AdminInquiryDetailPage({
           <h1 className="text-2xl font-semibold tracking-tight">문의 상세</h1>
           <div className="mt-2 flex items-center gap-2">
             <Badge variant="outline">{INQUIRY_TYPE_LABEL[type]}</Badge>
-            <Badge variant="secondary">{INQUIRY_STATUS_LABEL[inquiry.status] ?? inquiry.status}</Badge>
+            <AdminInquiryStatusSelect inquiryId={inquiry.id} status={inquiry.status} />
           </div>
         </div>
 
@@ -132,9 +136,24 @@ export default async function AdminInquiryDetailPage({
               </div>
             )}
 
-            {inquiry.admin_note && <Field label="관리자 메모" value={inquiry.admin_note} />}
           </CardContent>
         </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <AdminInquiryNoteForm inquiryId={inquiry.id} note={inquiry.admin_note} />
+          </CardContent>
+        </Card>
+
+        <form action={deleteInquiry.bind(null, inquiry.id)}>
+          <ConfirmSubmitButton
+            size="sm"
+            variant="destructive"
+            confirmMessage="이 문의를 휴지통으로 이동할까요?"
+          >
+            문의 삭제
+          </ConfirmSubmitButton>
+        </form>
       </div>
     </div>
   );

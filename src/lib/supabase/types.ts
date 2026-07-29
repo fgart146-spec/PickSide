@@ -277,6 +277,13 @@ export interface Database {
           business_inquiry_description: string;
           business_inquiry_url: string;
           business_inquiry_open_new_tab: boolean;
+          page_enabled: boolean;
+          general_enabled: boolean;
+          bug_enabled: boolean;
+          ad_enabled: boolean;
+          partnership_enabled: boolean;
+          contact_email: string | null;
+          intro_text: string | null;
           updated_at: string;
         };
         Insert: {
@@ -286,6 +293,13 @@ export interface Database {
           business_inquiry_description?: string;
           business_inquiry_url?: string;
           business_inquiry_open_new_tab?: boolean;
+          page_enabled?: boolean;
+          general_enabled?: boolean;
+          bug_enabled?: boolean;
+          ad_enabled?: boolean;
+          partnership_enabled?: boolean;
+          contact_email?: string | null;
+          intro_text?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -295,6 +309,55 @@ export interface Database {
           business_inquiry_description?: string;
           business_inquiry_url?: string;
           business_inquiry_open_new_tab?: boolean;
+          page_enabled?: boolean;
+          general_enabled?: boolean;
+          bug_enabled?: boolean;
+          ad_enabled?: boolean;
+          partnership_enabled?: boolean;
+          contact_email?: string | null;
+          intro_text?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      contact_channels: {
+        Row: {
+          id: string;
+          name: string;
+          button_label: string;
+          description: string | null;
+          url: string;
+          icon: string;
+          is_visible: boolean;
+          sort_order: number;
+          open_new_tab: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          button_label: string;
+          description?: string | null;
+          url: string;
+          icon?: string;
+          is_visible?: boolean;
+          sort_order?: number;
+          open_new_tab?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          button_label?: string;
+          description?: string | null;
+          url?: string;
+          icon?: string;
+          is_visible?: boolean;
+          sort_order?: number;
+          open_new_tab?: boolean;
+          created_at?: string;
           updated_at?: string;
         };
         Relationships: [];
@@ -312,6 +375,7 @@ export interface Database {
           image_path: string | null;
           user_id: string | null;
           admin_note: string | null;
+          ip_address: string | null;
           created_at: string;
           deleted_at: string | null;
         };
@@ -327,6 +391,7 @@ export interface Database {
           image_path?: string | null;
           user_id?: string | null;
           admin_note?: string | null;
+          ip_address?: string | null;
           created_at?: string;
           deleted_at?: string | null;
         };
@@ -342,6 +407,7 @@ export interface Database {
           image_path?: string | null;
           user_id?: string | null;
           admin_note?: string | null;
+          ip_address?: string | null;
           created_at?: string;
           deleted_at?: string | null;
         };

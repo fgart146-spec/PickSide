@@ -230,7 +230,7 @@ export async function dismissReport(reportId: string, formData: FormData) {
 // Trash: restore / permanently delete soft-deleted content.
 // ---------------------------------------------------------------------------
 
-type TrashTable = "polls" | "comments" | "community_posts" | "community_comments";
+type TrashTable = "polls" | "comments" | "community_posts" | "community_comments" | "inquiries";
 
 // Trash mutations run with the service-role client: the caller is already
 // verified as an admin, and there is no admin-level RLS policy for hard
@@ -302,6 +302,13 @@ export async function restoreCommunityComment(id: string) {
 }
 export async function permanentlyDeleteCommunityComment(id: string) {
   await permanentlyDelete("community_comments", id);
+}
+
+export async function restoreInquiry(id: string) {
+  await restore("inquiries", id);
+}
+export async function permanentlyDeleteInquiry(id: string) {
+  await permanentlyDelete("inquiries", id);
 }
 
 // ---------------------------------------------------------------------------

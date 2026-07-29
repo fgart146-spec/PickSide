@@ -10,9 +10,12 @@ import {
   permanentlyDeleteCommunityPost,
   restoreCommunityComment,
   permanentlyDeleteCommunityComment,
+  restoreInquiry,
+  permanentlyDeleteInquiry,
   restoreAllTrash,
   permanentlyDeleteAllTrash,
 } from "@/app/admin/actions";
+import { INQUIRY_TYPE_LABEL, type InquiryType } from "@/lib/inquiries";
 import { Button } from "@/components/ui/button";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
@@ -110,6 +113,7 @@ export default async function AdminTrashPage({
     commentsPage?: string;
     postsPage?: string;
     ccPage?: string;
+    inquiriesPage?: string;
   }>;
 }) {
   const supabase = await createClient();
@@ -136,6 +140,7 @@ export default async function AdminTrashPage({
   const commentsPage = parsePage(sp.commentsPage);
   const postsPage = parsePage(sp.postsPage);
   const ccPage = parsePage(sp.ccPage);
+  const inquiriesPage = parsePage(sp.inquiriesPage);
   const rangeFor = (page: number) => [(page - 1) * PAGE_SIZE, (page - 1) * PAGE_SIZE + PAGE_SIZE] as const;
 
   const trashHref = (overrides: {
@@ -143,6 +148,7 @@ export default async function AdminTrashPage({
     commentsPage?: number;
     postsPage?: number;
     ccPage?: number;
+    inquiriesPage?: number;
   }) => {
     const params = new URLSearchParams();
     const values = {
@@ -150,6 +156,7 @@ export default async function AdminTrashPage({
       commentsPage: overrides.commentsPage ?? commentsPage,
       postsPage: overrides.postsPage ?? postsPage,
       ccPage: overrides.ccPage ?? ccPage,
+      inquiriesPage: overrides.inquiriesPage ?? inquiriesPage,
     };
     for (const [key, val] of Object.entries(values)) {
       if (val > 1) params.set(key, String(val));
@@ -163,6 +170,7 @@ export default async function AdminTrashPage({
     { data: deletedComments, count: commentsCount },
     { data: deletedPosts, count: postsCount },
     { data: deletedCommunityComments, count: ccCount },
+    { data: deletedInquiries, count: inquiriesCount },
   ] = await Promise.all([
     supabase
       .from("polls")
@@ -188,6 +196,12 @@ export default async function AdminTrashPage({
       .not("deleted_at", "is", null)
       .order("deleted_at", { ascending: false })
       .range(...rangeFor(ccPage)),
+    supabase
+      .from("inquiries")
+      .select("id, type, name, email, subject, deleted_at", { count: "exact" })
+      .not("deleted_at", "is", null)
+      .order("deleted_at", { ascending: false })
+      .range(...rangeFor(inquiriesPage)),
   ]);
 
   const pollsRows = (deletedPolls ?? []).slice(0, PAGE_SIZE);
@@ -198,6 +212,8 @@ export default async function AdminTrashPage({
   const postsHasNext = (deletedPosts?.length ?? 0) > PAGE_SIZE;
   const ccRows = (deletedCommunityComments ?? []).slice(0, PAGE_SIZE);
   const ccHasNext = (deletedCommunityComments?.length ?? 0) > PAGE_SIZE;
+  const inquiriesRows = (deletedInquiries ?? []).slice(0, PAGE_SIZE);
+  const inquiriesHasNext = (deletedInquiries?.length ?? 0) > PAGE_SIZE;
 
   return (
     <div className="flex flex-1 justify-center px-4 py-12">
@@ -315,6 +331,34 @@ export default async function AdminTrashPage({
               </Card>
             );
           })}
+        </TrashSection>
+
+        <TrashSection
+          title="문의"
+          count={inquiriesCount ?? 0}
+          page={inquiriesPage}
+          hasNext={inquiriesHasNext}
+          makeHref={(p) => trashHref({ inquiriesPage: p })}
+          restoreAllAction={restoreAllTrash.bind(null, "inquiries")}
+          deleteAllAction={permanentlyDeleteAllTrash.bind(null, "inquiries")}
+        >
+          {inquiriesRows.map((inquiry) => (
+            <Card key={inquiry.id}>
+              <CardHeader>
+                <CardTitle className="text-sm">
+                  [{INQUIRY_TYPE_LABEL[inquiry.type as InquiryType] ?? inquiry.type}]{" "}
+                  {inquiry.subject || inquiry.name}
+                </CardTitle>
+                <CardDescription>{inquiry.email}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <RestoreDeleteActions
+                  restoreAction={restoreInquiry.bind(null, inquiry.id)}
+                  deleteAction={permanentlyDeleteInquiry.bind(null, inquiry.id)}
+                />
+              </CardContent>
+            </Card>
+          ))}
         </TrashSection>
       </div>
     </div>

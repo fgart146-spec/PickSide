@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { createServiceClient } from "@/lib/supabase/service";
 import { createClient } from "@/lib/supabase/server";
 import { isValidEmail, isReasonableLength } from "@/lib/inquiries";
@@ -12,6 +13,15 @@ export type InquiryFormState = { error: string | null; success: boolean };
 // but fill every visible-looking field still get caught).
 const HONEYPOT_FIELD = "website_url_confirm";
 
+const MAX_SUBMISSIONS_PER_IP_PER_DAY = 10;
+
+async function getRequestIp(): Promise<string | null> {
+  const h = await headers();
+  const forwarded = h.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return h.get("x-real-ip");
+}
+
 async function checkSpam(formData: FormData, email: string): Promise<string | null> {
   if (String(formData.get(HONEYPOT_FIELD) ?? "").trim()) {
     // Bots fill honeypots; pretend success so they don't learn to skip it.
@@ -20,14 +30,28 @@ async function checkSpam(formData: FormData, email: string): Promise<string | nu
 
   const service = createServiceClient();
   const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
-  const { count } = await service
+  const { count: recentByEmail } = await service
     .from("inquiries")
     .select("id", { count: "exact", head: true })
     .eq("email", email)
     .gte("created_at", oneMinuteAgo);
 
-  if ((count ?? 0) > 0) {
+  if ((recentByEmail ?? 0) > 0) {
     return "잠시 후 다시 시도해주세요. (중복 제출 방지)";
+  }
+
+  const ip = await getRequestIp();
+  if (ip) {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count: todayByIp } = await service
+      .from("inquiries")
+      .select("id", { count: "exact", head: true })
+      .eq("ip_address", ip)
+      .gte("created_at", oneDayAgo);
+
+    if ((todayByIp ?? 0) >= MAX_SUBMISSIONS_PER_IP_PER_DAY) {
+      return "오늘 문의 가능 횟수를 초과했습니다. 내일 다시 시도해주세요.";
+    }
   }
 
   return null;
@@ -75,6 +99,7 @@ export async function submitGeneralInquiry(
     subject,
     message,
     user_id: userId,
+    ip_address: await getRequestIp(),
   });
   if (error) return { error: "문의 접수에 실패했습니다. 잠시 후 다시 시도해주세요.", success: false };
 
@@ -128,6 +153,7 @@ export async function submitBugReport(
     details: { pageUrl, device, browser, reproSteps },
     image_path: imagePath,
     user_id: userId,
+    ip_address: await getRequestIp(),
   });
   if (error) return { error: "문의 접수에 실패했습니다. 잠시 후 다시 시도해주세요.", success: false };
 
@@ -163,6 +189,7 @@ export async function submitAdInquiry(
     message,
     details: { companyName, adPosition, adPeriod, budget },
     user_id: userId,
+    ip_address: await getRequestIp(),
   });
   if (error) return { error: "문의 접수에 실패했습니다. 잠시 후 다시 시도해주세요.", success: false };
 
@@ -197,6 +224,7 @@ export async function submitPartnershipInquiry(
     message,
     details: { companyName, websiteUrl, cooperationType },
     user_id: userId,
+    ip_address: await getRequestIp(),
   });
   if (error) return { error: "문의 접수에 실패했습니다. 잠시 후 다시 시도해주세요.", success: false };
 
