@@ -4,18 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PRIVATE_IMAGE_BUCKET } from "@/lib/supabase/service";
-import { isPollCategory } from "@/lib/categories";
+import { legacyCategoryFor } from "@/lib/categories";
 import { suspensionMessage } from "@/lib/moderation";
 import { toOptimizedWebp } from "@/lib/image-processing";
-
-// polls.category (the original 6-value Postgres enum) is kept NOT NULL for
-// backward compatibility with code that still reads it directly. When the
-// admin-picked category is one of those 6 names, mirror it there too;
-// otherwise fall back to '기타' — category_id is the actual source of truth
-// going forward.
-function legacyCategoryFor(name: string) {
-  return isPollCategory(name) ? name : "기타";
-}
 
 export type CreatePollState = { error: string | null };
 

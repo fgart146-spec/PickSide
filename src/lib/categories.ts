@@ -6,6 +6,13 @@ export function isPollCategory(value: string): value is PollCategory {
   return (POLL_CATEGORIES as readonly string[]).includes(value);
 }
 
+// polls.category (the legacy enum) is kept NOT NULL for backward
+// compatibility. When an admin-picked category's name matches one of the
+// original 6, mirror it there too; otherwise fall back to '기타'.
+export function legacyCategoryFor(name: string): PollCategory {
+  return isPollCategory(name) ? name : "기타";
+}
+
 // ---------------------------------------------------------------------------
 // Dynamic (DB-managed) categories — see the `categories` table. The
 // PollCategory union above stays as the legacy enum type backing

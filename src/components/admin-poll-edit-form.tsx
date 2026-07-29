@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { adminUpdatePoll, type AdminPollEditState } from "@/app/admin/polls/actions";
-import { POLL_CATEGORIES } from "@/lib/categories";
+import type { CategoryNavItem } from "@/lib/home-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,18 +19,22 @@ const initialState: AdminPollEditState = { error: null };
 export function AdminPollEditForm({
   pollId,
   question,
-  category,
+  categoryId,
+  categories,
   optionA,
   optionB,
 }: {
   pollId: string;
   question: string;
-  category: string;
+  categoryId: string;
+  categories: CategoryNavItem[];
   optionA: { id: string; label: string };
   optionB: { id: string; label: string };
 }) {
   const action = adminUpdatePoll.bind(null, pollId);
   const [state, formAction, pending] = useActionState(action, initialState);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(categoryId);
+  const selected = categories.find((c) => c.id === selectedCategoryId) ?? null;
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -44,14 +48,20 @@ export function AdminPollEditForm({
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="category">카테고리</Label>
-        <Select name="category" defaultValue={category}>
+        <input type="hidden" name="category_id" value={selectedCategoryId} />
+        <Select
+          value={selectedCategoryId}
+          onValueChange={(value) => setSelectedCategoryId(value ?? "")}
+        >
           <SelectTrigger id="category" className="w-full">
-            <SelectValue />
+            <SelectValue>
+              {() => (selected ? (selected.icon ? `${selected.icon} ${selected.name}` : selected.name) : "")}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {POLL_CATEGORIES.map((cat) => (
-              <SelectItem key={cat} value={cat}>
-                {cat}
+            {categories.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.icon ? `${c.icon} ${c.name}` : c.name}
               </SelectItem>
             ))}
           </SelectContent>

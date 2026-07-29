@@ -24,7 +24,6 @@ export type SpeedGameQuestion = {
   question: string;
   category: string;
   options: SpeedGameOption[];
-  alreadyVotedOptionId: string | null;
 };
 
 type Answer = {
@@ -80,17 +79,10 @@ export function SpeedGame({
   useEffect(() => {
     if (!current) return;
 
-    if (current.alreadyVotedOptionId) {
-      // Already voted on this one in a previous visit — votes are insert-only,
-      // so re-clicking a different option here would silently fail. Record
-      // the historical pick and move straight on instead of running a timer.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      advance(current.alreadyVotedOptionId);
-      return;
-    }
-
     if (timerSeconds === null) return;
 
+    // Reset the per-question countdown when the question changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSecondsLeft(timerSeconds);
     const start = Date.now();
     const timer = setInterval(() => {

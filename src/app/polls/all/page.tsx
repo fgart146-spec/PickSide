@@ -22,10 +22,46 @@ export default async function AllRandomPollsPage({
   searchParams: Promise<{ category?: string }>;
 }) {
   const { category: categorySlug } = await searchParams;
+  const categories = await getVisibleCategories();
+
+  // Land on a category picker first; the game only starts once a category
+  // (or "전체") is explicitly chosen via ?category=.
+  if (!categorySlug) {
+    return (
+      <div className="flex flex-1 flex-col items-center gap-6 px-4 py-12">
+        <div className="flex flex-col items-center gap-1 text-center">
+          <h1 className="text-xl font-semibold tracking-tight">전체 랜덤투표</h1>
+          <p className="text-sm text-muted-foreground">
+            먼저 카테고리를 선택해주세요.
+          </p>
+        </div>
+        <div className="flex w-full max-w-md flex-wrap justify-center gap-2">
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={<Link href="/polls/all?category=all">전체</Link>}
+          />
+          {categories.map((cat) => (
+            <Button
+              key={cat.id}
+              size="sm"
+              variant="outline"
+              nativeButton={false}
+              render={
+                <Link href={`/polls/all?category=${encodeURIComponent(cat.slug)}`}>
+                  {cat.icon ? `${cat.icon} ${cat.name}` : cat.name}
+                </Link>
+              }
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const supabase = await createClient();
-  const categories = await getVisibleCategories();
-  const activeCategory = categorySlug ? categories.find((c) => c.slug === categorySlug) : null;
+  const activeCategory =
+    categorySlug === "all" ? null : categories.find((c) => c.slug === categorySlug) ?? null;
 
   let query = supabase
     .from("polls")
@@ -41,7 +77,6 @@ export default async function AllRandomPollsPage({
     supabase.auth.getUser(),
   ]);
 
-  // Only the viewer's own votes (to mark their prior pick) — not every vote row.
   const myVoteByPoll: Record<string, string> = {};
   if (auth.user) {
     const { data: myVotes } = await supabase
@@ -53,20 +88,19 @@ export default async function AllRandomPollsPage({
 
   const pollsWithCategoryName = (
     (polls as unknown as ({ categories: CategoryEmbed | null } & Record<string, unknown>)[]) ?? []
-  ).map((poll) => ({ ...poll, category: flattenCategory(poll).categoryName }));
+  )
+    .map((poll) => ({ ...poll, category: flattenCategory(poll).categoryName }))
+    .filter((poll) => !myVoteByPoll[(poll as unknown as { id: string }).id]);
 
   const all = pickDailySpeedGamePolls(
     pollsWithCategoryName as unknown as PollWithOptionCounts[],
     pollsWithCategoryName.length
   );
-  const questions = buildSpeedGameQuestions(
-    all,
-    myVoteByPoll,
-    (path) => supabase.storage.from(PUBLIC_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl
+  const questions = buildSpeedGameQuestions(all, (path) =>
+    supabase.storage.from(PUBLIC_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl
   );
 
-  const categoryHref = (slug: string | null) =>
-    slug ? `/polls/all?category=${encodeURIComponent(slug)}` : "/polls/all";
+  const categoryHref = (slug: string) => `/polls/all?category=${encodeURIComponent(slug)}`;
 
   return (
     <div className="flex flex-1 flex-col items-center gap-6 px-4 py-12">
@@ -75,7 +109,7 @@ export default async function AllRandomPollsPage({
           size="sm"
           variant={activeCategory === null ? "default" : "outline"}
           nativeButton={false}
-          render={<Link href={categoryHref(null)}>전체</Link>}
+          render={<Link href={categoryHref("all")}>전체</Link>}
         />
         {categories.map((cat) => (
           <Button

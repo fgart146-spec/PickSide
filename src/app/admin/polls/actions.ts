@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/app/admin/actions";
 import { logAdminAction } from "@/lib/audit";
-import { isPollCategory } from "@/lib/categories";
+import { legacyCategoryFor } from "@/lib/categories";
 import {
   createServiceClient,
   PRIVATE_IMAGE_BUCKET,
@@ -21,7 +21,7 @@ export async function adminUpdatePoll(
   const { supabase, adminId } = await requireAdmin();
 
   const question = String(formData.get("question") ?? "").trim();
-  const category = String(formData.get("category") ?? "");
+  const categoryId = String(formData.get("category_id") ?? "").trim();
   const optionAId = String(formData.get("optionAId") ?? "");
   const optionALabel = String(formData.get("optionALabel") ?? "").trim();
   const optionBId = String(formData.get("optionBId") ?? "");
@@ -30,15 +30,27 @@ export async function adminUpdatePoll(
   if (!question || !optionALabel || !optionBLabel) {
     return { error: "질문과 두 선택지를 모두 입력해주세요." };
   }
-  if (!isPollCategory(category)) {
+  if (!categoryId) {
+    return { error: "올바른 카테고리를 선택해주세요." };
+  }
+
+  const { data: category } = await supabase
+    .from("categories")
+    .select("id, name")
+    .eq("id", categoryId)
+    .single();
+  if (!category) {
     return { error: "올바른 카테고리를 선택해주세요." };
   }
 
   const { data: existingPoll } = await supabase
     .from("polls")
-    .select("question, category")
+    .select("question, categories!polls_category_id_fkey(name)")
     .eq("id", pollId)
     .single();
+  const existingCategoryName =
+    (existingPoll as unknown as { categories: { name: string } | null } | null)?.categories
+      ?.name ?? null;
   const { data: existingOptions } = await supabase
     .from("poll_options")
     .select("id, label")
@@ -47,7 +59,11 @@ export async function adminUpdatePoll(
 
   const { error: pollError } = await supabase
     .from("polls")
-    .update({ question, category })
+    .update({
+      question,
+      category_id: category.id,
+      category: legacyCategoryFor(category.name),
+    })
     .eq("id", pollId);
   if (pollError) {
     return { error: pollError.message };
@@ -76,11 +92,11 @@ export async function adminUpdatePoll(
     targetId: pollId,
     before: {
       question: existingPoll?.question,
-      category: existingPoll?.category,
+      category: existingCategoryName,
       optionALabel: existingLabelById.get(optionAId),
       optionBLabel: existingLabelById.get(optionBId),
     },
-    after: { question, category, optionALabel, optionBLabel },
+    after: { question, category: category.name, optionALabel, optionBLabel },
   });
 
   revalidatePath(`/admin/polls/${pollId}`);

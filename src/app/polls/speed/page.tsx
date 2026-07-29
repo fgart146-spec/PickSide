@@ -46,16 +46,16 @@ export default async function SpeedGamePage() {
 
   const pollsWithCategoryName = (
     polls as unknown as ({ categories: CategoryEmbed | null } & Record<string, unknown>)[]
-  ).map((poll) => ({ ...poll, category: flattenCategory(poll).categoryName }));
+  )
+    .map((poll) => ({ ...poll, category: flattenCategory(poll).categoryName }))
+    .filter((poll) => !myVoteByPoll[(poll as unknown as { id: string }).id]);
 
   const daily = pickDailySpeedGamePolls(
     pollsWithCategoryName as unknown as PollWithOptionCounts[],
     10
   );
-  const questions = buildSpeedGameQuestions(
-    daily,
-    myVoteByPoll,
-    (path) => supabase.storage.from(PUBLIC_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl
+  const questions = buildSpeedGameQuestions(daily, (path) =>
+    supabase.storage.from(PUBLIC_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl
   );
 
   return (

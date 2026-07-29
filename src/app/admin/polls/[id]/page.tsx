@@ -13,6 +13,7 @@ import {
   adminRemoveOptionImage,
 } from "@/app/admin/polls/actions";
 import { PRIVATE_IMAGE_BUCKET, PUBLIC_IMAGE_BUCKET } from "@/lib/supabase/service";
+import { getVisibleCategories } from "@/lib/home-data";
 import { AdminPollEditForm } from "@/components/admin-poll-edit-form";
 import { AdminOptionImageForm } from "@/components/admin-option-image-form";
 import { Badge } from "@/components/ui/badge";
@@ -53,7 +54,9 @@ export default async function AdminPollDetailPage({
 
   const { data: poll } = await supabase
     .from("polls")
-    .select("id, question, status, category, is_pinned, is_featured, profiles!polls_owner_id_fkey(username)")
+    .select(
+      "id, question, status, category_id, is_pinned, is_featured, profiles!polls_owner_id_fkey(username)"
+    )
     .eq("id", id)
     .single();
 
@@ -61,11 +64,14 @@ export default async function AdminPollDetailPage({
     notFound();
   }
 
-  const { data: options } = await supabase
-    .from("poll_options")
-    .select("id, label, position, image_path")
-    .eq("poll_id", id)
-    .order("position");
+  const [{ data: options }, categories] = await Promise.all([
+    supabase
+      .from("poll_options")
+      .select("id, label, position, image_path")
+      .eq("poll_id", id)
+      .order("position"),
+    getVisibleCategories(),
+  ]);
 
   const [optionA, optionB] = options ?? [];
   const ownerUsername =
@@ -156,7 +162,8 @@ export default async function AdminPollDetailPage({
               <AdminPollEditForm
                 pollId={id}
                 question={poll.question}
-                category={poll.category}
+                categoryId={poll.category_id}
+                categories={categories}
                 optionA={{ id: optionA.id, label: optionA.label }}
                 optionB={{ id: optionB.id, label: optionB.label }}
               />

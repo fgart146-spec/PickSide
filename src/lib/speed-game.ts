@@ -36,7 +36,6 @@ export type PollWithOptionCounts = {
 
 export function buildSpeedGameQuestions(
   polls: PollWithOptionCounts[],
-  myVoteByPoll: Record<string, string>,
   imageUrlFor: (path: string) => string
 ) {
   return polls.map((poll) => ({
@@ -49,6 +48,5 @@ export function buildSpeedGameQuestions(
       imageUrl: option.image_path ? imageUrlFor(option.image_path) : null,
       voteCount: option.votes[0]?.count ?? 0,
     })),
-    alreadyVotedOptionId: myVoteByPoll[poll.id] ?? null,
   }));
 }
