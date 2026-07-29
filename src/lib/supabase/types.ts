@@ -269,6 +269,92 @@ export interface Database {
           }
         ];
       };
+      contact_settings: {
+        Row: {
+          id: number;
+          business_inquiry_enabled: boolean;
+          business_inquiry_label: string;
+          business_inquiry_description: string;
+          business_inquiry_url: string;
+          business_inquiry_open_new_tab: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          business_inquiry_enabled?: boolean;
+          business_inquiry_label?: string;
+          business_inquiry_description?: string;
+          business_inquiry_url?: string;
+          business_inquiry_open_new_tab?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          id?: number;
+          business_inquiry_enabled?: boolean;
+          business_inquiry_label?: string;
+          business_inquiry_description?: string;
+          business_inquiry_url?: string;
+          business_inquiry_open_new_tab?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      inquiries: {
+        Row: {
+          id: string;
+          type: string;
+          status: string;
+          name: string;
+          email: string;
+          subject: string | null;
+          message: string;
+          details: Json;
+          image_path: string | null;
+          user_id: string | null;
+          admin_note: string | null;
+          created_at: string;
+          deleted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          type: string;
+          status?: string;
+          name: string;
+          email: string;
+          subject?: string | null;
+          message: string;
+          details?: Json;
+          image_path?: string | null;
+          user_id?: string | null;
+          admin_note?: string | null;
+          created_at?: string;
+          deleted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          type?: string;
+          status?: string;
+          name?: string;
+          email?: string;
+          subject?: string | null;
+          message?: string;
+          details?: Json;
+          image_path?: string | null;
+          user_id?: string | null;
+          admin_note?: string | null;
+          created_at?: string;
+          deleted_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "inquiries_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       site_visits: {
         Row: {
           visitor_id: string;

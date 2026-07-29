@@ -12,6 +12,9 @@ export function SiteFooter() {
           <Link href="/privacy" className="hover:text-foreground hover:underline underline-offset-4">
             개인정보처리방침
           </Link>
+          <Link href="/contact" className="hover:text-foreground hover:underline underline-offset-4">
+            문의하기
+          </Link>
         </nav>
       </div>
     </footer>

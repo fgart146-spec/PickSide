@@ -15,6 +15,8 @@ const ADMIN_LINKS = [
   { href: "/admin/trash", label: "휴지통" },
   { href: "/admin/audit-log", label: "감사 로그" },
   { href: "/admin/policies", label: "약관/정책 관리" },
+  { href: "/admin/inquiries", label: "문의 내역" },
+  { href: "/admin/contact-settings", label: "문의 설정" },
 ];
 
 // A hand-rolled dropdown instead of the Base UI Menu: NavBar is a dynamic
