@@ -21,6 +21,7 @@ export const metadata: Metadata = {
   title: "PickSide",
   description: "둘 중 하나를 골라 투표하는 서비스, PickSide",
   verification: {
+    google: "yS2MeFG84-UO99z3qQ7acbHi3qOgDckT2yxMKvtHwJI",
     other: {
       "naver-site-verification": "285fff94412786a6cccf4b9d3dd0e1ffa3c9b000",
     },
