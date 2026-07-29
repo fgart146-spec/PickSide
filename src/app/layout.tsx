@@ -20,6 +20,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "PickSide",
   description: "둘 중 하나를 골라 투표하는 서비스, PickSide",
+  verification: {
+    other: {
+      "naver-site-verification": "285fff94412786a6cccf4b9d3dd0e1ffa3c9b000",
+    },
+  },
 };
 
 export default function RootLayout({
