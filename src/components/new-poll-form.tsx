@@ -38,7 +38,7 @@ export function NewPollForm({ categories }: { categories: CategoryNavItem[] }) {
           <CardTitle className="text-xl">새 VS 투표 만들기</CardTitle>
           <CardDescription>
             두 장의 사진으로 둘 중 하나를 고르는 질문을 만들어보세요. 만든 투표는
-            관리자 승인 후 공개됩니다.
+            바로 공개됩니다.
           </CardDescription>
         </CardHeader>
 

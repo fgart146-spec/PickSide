@@ -1,22 +1,41 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Share2Icon, LinkIcon, DownloadIcon } from "lucide-react";
 import { toast } from "sonner";
 
 export function ShareMenu({ title }: { title: string }) {
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   // Safe to read directly: this only affects markup inside `{open && ...}`,
   // which never renders during SSR/hydration (open starts false and can
   // only flip true from a client click), so there's no server/client
   // mismatch to worry about.
   const canNativeShare = typeof navigator !== "undefined" && !!navigator.share;
 
+  // Portaled to <body> and positioned via getBoundingClientRect, instead of
+  // `absolute` inside the trigger's own container — the trigger sits inside
+  // a Card with overflow-hidden (for its rounded corners), which was
+  // clipping the dropdown before it could render on top.
+  useLayoutEffect(() => {
+    if (!open || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setPosition({ top: rect.bottom + 4, left: rect.right - 208 });
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(target) &&
+        menuRef.current &&
+        !menuRef.current.contains(target)
+      ) {
         setOpen(false);
       }
     }
@@ -94,66 +113,70 @@ export function ShareMenu({ title }: { title: string }) {
       >
         <Share2Icon className="size-4" />
       </button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 top-full z-50 mt-1 flex w-52 flex-col gap-0.5 rounded-lg border bg-popover p-1 text-sm text-popover-foreground shadow-md"
-        >
-          <button
-            type="button"
-            role="menuitem"
-            onClick={copyLink}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent"
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{ top: position.top, left: position.left }}
+            className="fixed z-50 flex w-52 flex-col gap-0.5 rounded-lg border bg-popover p-1 text-sm text-popover-foreground shadow-md"
           >
-            <LinkIcon className="size-4" />
-            링크 복사
-          </button>
-          {canNativeShare && (
             <button
               type="button"
               role="menuitem"
-              onClick={nativeShare}
+              onClick={copyLink}
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent"
             >
-              <Share2Icon className="size-4" />
-              공유하기
+              <LinkIcon className="size-4" />
+              링크 복사
             </button>
-          )}
-          <button
-            type="button"
-            role="menuitem"
-            onClick={shareToX}
-            className="rounded-md px-2 py-1.5 text-left hover:bg-accent"
-          >
-            X에 공유
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={shareToFacebook}
-            className="rounded-md px-2 py-1.5 text-left hover:bg-accent"
-          >
-            Facebook에 공유
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={saveShareImage}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent"
-          >
-            <DownloadIcon className="size-4" />
-            인스타그램 스토리용 이미지
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            disabled
-            className="rounded-md px-2 py-1.5 text-left text-muted-foreground opacity-50"
-          >
-            카카오톡 공유 (준비 중)
-          </button>
-        </div>
-      )}
+            {canNativeShare && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={nativeShare}
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent"
+              >
+                <Share2Icon className="size-4" />
+                공유하기
+              </button>
+            )}
+            <button
+              type="button"
+              role="menuitem"
+              onClick={shareToX}
+              className="rounded-md px-2 py-1.5 text-left hover:bg-accent"
+            >
+              X에 공유
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={shareToFacebook}
+              className="rounded-md px-2 py-1.5 text-left hover:bg-accent"
+            >
+              Facebook에 공유
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={saveShareImage}
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent"
+            >
+              <DownloadIcon className="size-4" />
+              인스타그램 스토리용 이미지
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              disabled
+              className="rounded-md px-2 py-1.5 text-left text-muted-foreground opacity-50"
+            >
+              카카오톡 공유 (준비 중)
+            </button>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

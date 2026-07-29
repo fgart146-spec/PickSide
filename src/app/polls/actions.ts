@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { PRIVATE_IMAGE_BUCKET } from "@/lib/supabase/service";
+import { PUBLIC_IMAGE_BUCKET } from "@/lib/supabase/service";
 import { legacyCategoryFor } from "@/lib/categories";
 import { suspensionMessage } from "@/lib/moderation";
 import { toOptimizedWebp } from "@/lib/image-processing";
@@ -70,6 +70,8 @@ export async function createPoll(
     return { error: "올바른 카테고리를 선택해주세요." };
   }
 
+  // Polls publish immediately (no admin pre-approval); admins review the
+  // public feed after the fact and delete anything that shouldn't be up.
   const { data: poll, error: pollError } = await supabase
     .from("polls")
     .insert({
@@ -77,6 +79,7 @@ export async function createPoll(
       owner_id: user.id,
       category_id: category.id,
       category: legacyCategoryFor(category.name),
+      status: "published",
     })
     .select("id")
     .single();
@@ -111,7 +114,7 @@ export async function createPoll(
     const optimized = await toOptimizedWebp(await image.arrayBuffer(), { maxWidth: 1200 });
     const path = `${poll.id}/${option.id}.webp`;
     const { error: uploadError } = await supabase.storage
-      .from(PRIVATE_IMAGE_BUCKET)
+      .from(PUBLIC_IMAGE_BUCKET)
       .upload(path, optimized, { contentType: "image/webp", upsert: true });
 
     if (uploadError) {
